@@ -471,87 +471,6 @@ html {
   justify-content: center;
   margin-top: 1rem;
 }
-
-#messageAlert {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    z-index: 10000;
-    min-width: 300px;
-    max-width: 500px;
-    transition: all 0.3s ease;
-    display: none;
-}
-
-.alert-visible {
-    display: block !important;
-    animation: slideInAlert 0.3s ease;
-}
-
-.alert-content {
-    padding: 15px 20px;
-    border-radius: 12px;
-    box-shadow: 0 8px 25px rgba(0,0,0,0.3);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    border: 2px solid;
-    backdrop-filter: blur(10px);
-}
-
-.alert-success {
-    background: rgba(212, 237, 218, 0.95);
-    color: #155724;
-    border-color: #c3e6cb;
-}
-
-.alert-error {
-    background: rgba(248, 215, 218, 0.95);
-    color: #721c24;
-    border-color: #f5c6cb;
-}
-
-.alert-info {
-    background: rgba(209, 236, 241, 0.95);
-    color: #0c5460;
-    border-color: #bee5eb;
-}
-
-.alert-warning {
-    background: rgba(255, 243, 205, 0.95);
-    color: #856404;
-    border-color: #ffeaa7;
-}
-
-.alert-close {
-    background: none;
-    border: none;
-    font-size: 20px;
-    cursor: pointer;
-    margin-left: 15px;
-    font-weight: bold;
-    color: inherit;
-}
-
-@keyframes slideInAlert {
-    from { transform: translateX(100%); opacity: 0; }
-    to { transform: translateX(0); opacity: 1; }
-}
-
-/* Make alerts responsive */
-@media (max-width: 768px) {
-    #messageAlert {
-        left: 10px;
-        right: 10px;
-        min-width: auto;
-        max-width: none;
-    }
-}
-
-
-
-
-
 </style>
 
 </head>
@@ -908,11 +827,12 @@ html {
 
 <script>
 // Firebase configuration
-
 const firebaseConfig = {
   apiKey: "AIzaSyB8WfD7DneS5nQXOLxB6c_D-n9aFgttr_w",
   authDomain: "local-market2025.firebaseapp.com",
-  databaseURL: "https://local-market2025-default-rtdb.asia-southeast1.firebasedatabase.app",
+
+databaseURL: "https://local-market2025-default-rtdb.asia-southeast1.firebasedatabase.app",
+
   projectId: "local-market2025",
   storageBucket: "local-market2025.firebasestorage.app",
   messagingSenderId: "1092213380873",
@@ -920,200 +840,9 @@ const firebaseConfig = {
   measurementId: "G-HMZXGT78G0"
 };
 
-// ==================== MESSAGE ALERT SYSTEM ====================
-function showAlert(message, type = 'info', duration = 5000) {
-    const alertDiv = document.getElementById('messageAlert');
-    const messageSpan = document.getElementById('alertMessage');
-
-    if (!alertDiv || !messageSpan) {
-        console.error('Alert elements not found');
-        return;
-    }
-
-    // Set message and type
-    messageSpan.textContent = message;
-    
-    // Remove all existing classes and set new ones
-    alertDiv.className = '';
-    alertDiv.classList.add('alert-visible');
-    alertDiv.classList.add(`alert-${type}`);
-    alertDiv.style.display = 'block';
-
-    // Auto hide
-    if (duration > 0) {
-        setTimeout(() => {
-            hideAlert();
-        }, duration);
-    }
-}
-
-function hideAlert() {
-    const alertDiv = document.getElementById('messageAlert');
-    if (alertDiv) {
-        alertDiv.style.display = 'none';
-    }
-}
-
-function showSuccess(message, duration = 5000) {
-    showAlert(message, 'success', duration);
-}
-
-function showError(message, duration = 5000) {
-    showAlert(message, 'error', duration);
-}
-
-function showInfo(message, duration = 5000) {
-    showAlert(message, 'info', duration);
-}
-
-function showWarning(message, duration = 5000) {
-    showAlert(message, 'warning', duration);
-}
-
-// ==================== MESSAGE ALERT SYSTEM END ====================
-
 // Initialize Firebase
 firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
-
-// ==================== FIREBASE AUTHENTICATION ====================
-const auth = firebase.auth();
-
-// User State Listener
-auth.onAuthStateChanged((user) => {
-    if (user) {
-        console.log('User logged in:', user.email);
-        // User is signed in - update UI
-        updateUIForLoggedInUser(user);
-    } else {
-        console.log('User logged out');
-        // User is signed out - update UI
-        updateUIForLoggedOutUser();
-    }
-});
-
-// Vendor Registration with Authentication
-async function registerVendorWithAuth(vendorData, email, password) {
-    try {
-        showInfo('Creating vendor account...', 0);
-        
-        // Create user account
-        const userCredential = await auth.createUserWithEmailAndPassword(email, password);
-        const user = userCredential.user;
-        
-        // Send email verification
-        await user.sendEmailVerification();
-        
-        // Save vendor data with user UID
-        const vendorWithAuth = {
-            ...vendorData,
-            userId: user.uid,
-            email: email,
-            emailVerified: false,
-            approved: false,
-            paid: false,
-            regDate: new Date().toLocaleDateString('en-IN'),
-            regDateTime: new Date().toLocaleString('en-IN')
-        };
-        
-        // Save to database
-        const vendorId = 'vendor_' + Date.now();
-        await firebase.database().ref('vendors/' + vendorId).set(vendorWithAuth);
-        
-        showSuccess('🎉 Vendor registered successfully! Please check your email for verification.');
-        document.getElementById('vendor-form').reset();
-        
-    } catch (error) {
-        showError('Registration failed: ' + error.message);
-    }
-}
-
-// Update Vendor Registration Form
-document.getElementById('vendor-form').addEventListener('submit', function(e) {
-    e.preventDefault();
-    const f = this.elements;
-    
-    // Get form data
-    const vendorData = {
-        name: f.name.value.trim(),
-        mobile: f.mobile.value.trim(),
-        service: f.service.value === 'Others' ? f.custom_service.value.trim() : f.service.value,
-        location: f.area.value.trim(),
-        experience: f.exp.value,
-        description: f.desc.value.trim()
-    };
-    
-    // Generate email and password
-    const email = `${vendorData.mobile}@lokonex.com`;
-    const password = 'lokonex123'; // Simple default password
-    
-    registerVendorWithAuth(vendorData, email, password);
-});
-
-// Admin Login with Authentication
-async function adminLogin() {
-    const email = document.getElementById('admin-user').value.trim();
-    const password = document.getElementById('admin-pass').value;
-    
-    try {
-        const userCredential = await auth.signInWithEmailAndPassword(email, password);
-        const user = userCredential.user;
-        
-        // Check if admin email
-        if (email === 'admin@lokonex.com' || email === 'svr@lokonex.com') {
-            document.getElementById('login-box').style.display = 'none';
-            document.getElementById('dashboard').style.display = 'block';
-            showDashboard();
-            showSuccess('Admin login successful!');
-        } else {
-            await auth.signOut();
-            showError('Admin access only');
-        }
-    } catch (error) {
-        showError('Login failed: ' + error.message);
-    }
-}
-
-// Logout Function
-function logout() {
-    auth.signOut().then(() => {
-        showSuccess('Logged out successfully');
-        show('home');
-    });
-}
-
-// UI Update Functions
-function updateUIForLoggedInUser(user) {
-    // Show user info in header
-    const header = document.querySelector('header');
-    const existingUserInfo = header.querySelector('.user-info');
-    if (existingUserInfo) {
-        existingUserInfo.remove();
-    }
-    
-    const userInfo = document.createElement('div');
-    userInfo.className = 'user-info';
-    userInfo.innerHTML = `
-        <div style="display:flex; align-items:center; gap:10px; font-size:0.8rem;">
-            <i class="fas fa-user"></i>
-            <span>${user.email}</span>
-            <button onclick="logout()" class="glow-btn" style="background:#e74c3c; padding:4px 8px; font-size:0.6rem;">
-                Logout
-            </button>
-        </div>
-    `;
-    header.appendChild(userInfo);
-}
-
-function updateUIForLoggedOutUser() {
-    // Hide user info
-    const userInfo = document.querySelector('.user-info');
-    if (userInfo) {
-        userInfo.remove();
-    }
-}
-
-// ==================== AUTHENTICATION END ====================
 
 // Cache management
 const CACHE_KEYS = {
@@ -1121,6 +850,7 @@ const CACHE_KEYS = {
   CATEGORIES: 'categories_v2',
   TIMESTAMP: 'data_timestamp'
 };
+
 let CATEGORIES = JSON.parse(localStorage.getItem(CACHE_KEYS.CATEGORIES)) || [
   "Electricians", "Plumbers", "Carpenters", "Mechanics", "Painters", 
   "Teachers / Tutors", "Doctors / Clinics", "Lawyers / Legal Advisors", 
@@ -1186,18 +916,21 @@ function saveVendor(photoData, f, isFree) {
   
   if (isFree) {
     // Free registration - show success and go to home
-    showSuccess('🎉 Registration Successful! You are now LIVE on Lokonex!');
+    popup('Registration Successful!', 'You are now LIVE on Lokonex! Your listing is active and visible to customers.');
     document.getElementById('vendor-form').reset();
-    setTimeout(() => show('home'), 2000);
+    show('home');
   } else {
     // Paid registration - show payment page
     document.getElementById('reg-number').textContent = vendors.filter(v => v.approved).length + 1;
     show('payment-page');
-    showInfo('Please complete payment to activate your listing');
   }
   
   updateFreeSlots();
 }
+
+/**
+ * Handle payment completion
+ */
 document.getElementById('paid-btn').onclick = () => {
   // Find the latest unapproved vendor (the one who just registered)
   const latestVendor = vendors
@@ -2121,27 +1854,19 @@ function toggleAll(source) {
 }
 
 function deleteSelected() {
-    const selected = Array.from(document.querySelectorAll('.vendor-check:checked')).map(cb => parseInt(cb.dataset.id));
-    if (selected.length === 0) {
-        showError('Please select at least one vendor to delete');
-        return;
-    }
-    
-    const confirmed = confirm(`Are you sure you want to delete ${selected.length} vendor(s)?\n\nThis action cannot be undone!`);
-    
-    if (confirmed) {
-        showInfo(`Deleting ${selected.length} vendor(s)...`, 0);
-        
-        setTimeout(() => {
-            vendors = vendors.filter(v => !selected.includes(v.id));
-            saveV();
-            showSuccess(`${selected.length} vendor(s) deleted successfully!`);
-            showDashboard(); 
-            showVendors();
-        }, 1000);
-    } else {
-        showInfo('Deletion cancelled');
-    }
+  const selected = Array.from(document.querySelectorAll('.vendor-check:checked')).map(cb => parseInt(cb.dataset.id));
+  if (selected.length === 0) {
+    popup('Error', 'Please select at least one vendor to delete');
+    return;
+  }
+  
+  if (confirm(`Delete ${selected.length} vendor(s) forever?`)) {
+    vendors = vendors.filter(v => !selected.includes(v.id));
+    saveV();
+    popup('Deleted', `${selected.length} vendor(s) removed successfully`);
+    showDashboard(); 
+    showVendors();
+  }
 }
 
 function updateSelected() {
@@ -2218,14 +1943,11 @@ function cancelUpdate() {
 }
 
 function approve(id) {
-    const vendor = vendors.find(v => v.id === id);
-    if (vendor) {
-        vendors = vendors.map(v => v.id === id ? {...v, approved: true} : v);
-        saveV();
-        showSuccess(`✅ Vendor "${vendor.name}" approved successfully!\nNow LIVE on platform`);
-        showDashboard(); 
-        showVendors();
-    }
+  vendors = vendors.map(v => v.id === id ? {...v, approved: true} : v);
+  saveV();
+  popup('Approved!', 'Now LIVE');
+  showDashboard(); 
+  showVendors();
 }
 
 function adminLogin() {
@@ -2366,16 +2088,6 @@ if ('serviceWorker' in navigator) {
          opacity:0;transition:opacity 0.4s,bottom 0.4s;">
   App Installed Successfully!
 </div>
-
-<!-- Add this before </body> tag -->
-<!-- Message Alert System -->
-<div id="messageAlert" style="display: none;">
-    <div class="alert-content">
-        <span id="alertMessage"></span>
-        <button onclick="hideAlert()" class="alert-close">&times;</button>
-    </div>
-</div>
-
 
 </body>
 </html>
