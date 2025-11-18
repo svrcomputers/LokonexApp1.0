@@ -1,0 +1,2091 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Lokonex</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Telugu:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+<!-- Cache Control -->
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+<meta http-equiv="Pragma" content="no-cache" />
+<meta http-equiv="Expires" content="0" />
+
+<!-- Auto Cache Busting -->
+<script>
+  // Auto-add timestamp to CSS & JS files to bypass cache
+  document.addEventListener("DOMContentLoaded", () => {
+    document.querySelectorAll("link[rel='stylesheet'], script[src]").forEach(el => {
+      const attr = el.tagName === "LINK" ? "href" : "src";
+      el.setAttribute(attr, el.getAttribute(attr) + "?v=" + Date.now());
+    });
+  });
+</script>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+<!-- PWA Setup -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0f2027">
+<link rel="icon" href="icon-192.png">
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html, body {
+  height: 100%;
+  width: 100%;
+  overflow-x: hidden;
+}
+body{
+  font-family:'Inter',sans-serif;
+  background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);
+  color:#fff;
+  min-height:100vh;
+  overflow-x:hidden;
+  padding-top:70px;
+}
+header{
+  position:fixed;
+  top:0;
+  left:0;
+  right:0;
+  background:rgba(15,32,39,0.95);
+  backdrop-filter:blur(12px);
+  border-bottom:1px solid rgba(255,215,0,0.2);
+  z-index:1000;
+  padding:0.8rem 4%;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  flex-wrap:nowrap;
+  gap:1rem;
+}
+.logo{font-size:1.5rem;font-weight:700;background:linear-gradient(90deg,#ffd700,#ff8c00);-webkit-background-clip:text;-webkit-text-fill-color:transparent;display:flex;align-items:center;gap:8px;white-space:nowrap}
+.logo img{width:32px;height:32px;border-radius:50%;border:2px solid #ffd700}
+.datetime{font-size:0.75rem;color:#ffd700;font-weight:500;white-space:nowrap;text-align:center;flex-shrink:0;position:absolute;left:50%;transform:translateX(-50%);}
+nav{display:flex;gap:0.8rem;flex-wrap:nowrap;justify-content:center;overflow-x:auto;padding-bottom:2px}
+nav::-webkit-scrollbar{height:3px}
+nav::-webkit-scrollbar-thumb{background:#ffd700;border-radius:10px}
+nav a{font-weight:500;color:#fff;cursor:pointer;padding:0.4rem 0.5rem;position:relative;white-space:nowrap;font-size:0.85rem;flex-shrink:0}
+nav a::after{content:'';position:absolute;bottom:0;left:0;width:0;height:2px;background:#ffd700;transition:0.3s}
+nav a:hover::after{width:100%}
+.page{display:none;padding:5rem 2% 2rem;min-height:100vh;width:100%;overflow-x:hidden}
+.page.active{display:block}
+.card{background:rgba(255,255,255,0.1);backdrop-filter:blur(12px);border:1px solid rgba(255,215,0,0.3);border-radius:16px;padding:1.5rem;box-shadow:0 10px 40px rgba(0,0,0,0.4);max-width:900px;margin:auto;width:100%}
+.glow-btn{background:linear-gradient(45deg,#ffd700,#ff8c00);color:#000;border:none;padding:0.6rem 1rem;border-radius:50px;font-weight:600;cursor:pointer;box-shadow:0 0 25px rgba(255,215,0,0.6);transition:0.3s;font-size:0.8rem}
+.glow-btn:hover{transform:scale(1.06);box-shadow:0 0 40px rgba(255,215,0,0.9)}
+label{display:block;margin:1.2rem 0 0.5rem;font-weight:500;color:#ffd700;font-size:1rem}
+input,select,textarea{width:100%;padding:0.9rem;border-radius:12px;border:none;background:rgba(255,255,255,0.2);color:#fff;font-size:1rem;appearance:none;-webkit-appearance:none}
+select{background:rgba(255,255,255,0.2) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23ffd700' d='M0 0l6 8 6-8z'/%3E%3C/svg%3E") no-repeat right 1rem center;background-size:10px}
+option{background:#203a43;color:#fff}
+#custom-service{display:none;margin-top:0.5rem}
+.vendor-card{text-align:center;margin-bottom:2rem;position:relative}
+.vendor-card img{width:100px;height:100px;object-fit:cover;border-radius:50%;border:3px solid #ffd700;margin-bottom:1rem}
+#popup,#contact-popup{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#000;padding:1.5rem 2rem;border-radius:16px;border:3px solid #ffd700;box-shadow:0 0 40px #ffd700;z-index:9999;text-align:center;display:none;width:90%;max-width:350px}
+#popup.show,#contact-popup.show{display:block}
+#popup button,#contact-popup button{margin-top:1rem;background:#ffd700;color:#000;padding:0.7rem 1.5rem;border-radius:50px;width:100%}
+.banner{text-align:center;padding:1rem 0.5rem;width:100%}
+.banner h1{font-size:1.8rem;background:linear-gradient(90deg,#ffd700,#fff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:0.5rem;line-height:1.3}
+.telugu{font-family:'Noto Sans Telugu',sans-serif}
+.search-bar{max-width:100%;margin:1.5rem auto;display:flex}
+.search-bar input{flex:1;border-radius:12px 0 0 12px}
+.search-bar button{border-radius:0 12px 12px 0}
+.categories{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:0.8rem;margin:1.5rem 0}
+.category-btn{background:rgba(255,255,255,0.1);border:2px solid #ffd700;padding:0.8rem;border-radius:16px;text-align:center;cursor:pointer;font-weight:500;font-size:0.8rem}
+.category-btn:hover{background:#ffd700;color:#000}
+.vendor-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1.2rem}
+.vendor-box{background:rgba(255,255,255,0.08);border-radius:16px;padding:1.2rem;border:1px solid rgba(255,215,0,0.3);transition:transform 0.3s, box-shadow 0.3s}
+.vendor-box:hover{transform:translateY(-5px);box-shadow:0 10px 25px rgba(255,215,0,0.2)}
+.vendor-header{display:flex;align-items:center;gap:1rem;margin-bottom:1rem}
+.vendor-img{width:70px;height:70px;border-radius:50%;border:2px solid #ffd700;object-fit:cover}
+.vendor-info{text-align:left;flex:1}
+.vendor-info h3{margin-bottom:0.5rem;color:#ffd700;font-size:1.1rem}
+.vendor-details{text-align:left;margin-bottom:1.2rem}
+.vendor-detail{display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem;font-size:0.9rem}
+.vendor-detail i{color:#ffd700;width:18px}
+.vendor-actions{display:flex;gap:0.5rem;justify-content:center}
+.call-btn{background:#25d366!important;color:#fff!important}
+.whatsapp-btn{background:#075e54!important;color:#fff!important}
+#payment-page{background:#111;padding:1.5rem;text-align:center}
+#payment-page img{max-width:100%;height:auto;border-radius:16px;border:5px solid #ffd700;margin:1rem 0}
+footer{text-align:left;padding:1.5rem 1rem;background:rgba(0,0,0,0.7);font-size:0.85rem;margin-top:2rem}
+.footer-content{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1.5rem;max-width:1200px;margin:0 auto}
+.footer-section h3{color:#ffd700;margin-bottom:1rem;font-size:1.1rem}
+.footer-section a{color:#fff;text-decoration:none;display:block;margin-bottom:0.5rem;transition:color 0.3s;font-size:0.85rem;cursor:pointer}
+.footer-section a:hover{color:#ffd700}
+.footer-section p{margin-bottom:0.5rem;text-align:left;font-size:0.85rem}
+.social-icons{display:flex;gap:0.8rem;margin-top:1rem}
+.social-icons a{color:#ffd700;font-size:1.3rem;transition:transform 0.3s}
+.social-icons a:hover{transform:scale(1.2)}
+.copyright{margin-top:1.5rem;padding-top:1rem;border-top:1px solid rgba(255,215,0,0.3);text-align:center}
+.expired{color:#e74c3c;font-weight:700}
+#admin-body td,#admin-body th{padding:8px 6px;font-size:0.8rem;text-align:left}
+#admin-body th{background:#ffd700;color:#000}
+#admin-body tr:nth-child(even){background:rgba(255,255,255,0.05)}
+#admin-body button{margin:2px;padding:3px 8px;font-size:0.75rem}
+.about-grid{display:grid;grid-template-columns:1fr;gap:1.5rem;margin:1.5rem 0}
+.about-col{background:rgba(255,255,255,0.08);padding:1.5rem;border-radius:16px;border:1px solid rgba(255,215,0,0.2)}
+.icon-glow{font-size:1.8rem;color:#ffd700;filter:drop-shadow(0 0 10px #ffd700);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}
+.project-features{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1.2rem;margin:1.5rem 0}
+.feature-card{background:rgba(255,255,255,0.08);padding:1.2rem;border-radius:16px;border:1px solid rgba(255,215,0,0.2);text-align:center}
+.feature-card i{font-size:2.2rem;color:#ffd700;margin-bottom:1rem}
+.legal-notice{background:rgba(255,215,0,0.1);border:1px solid rgba(255,215,0,0.3);border-radius:12px;padding:1.2rem;margin:1.5rem 0;font-size:1rem;line-height:1.6;text-align:left}
+.legal-notice p{margin-bottom:1rem;text-align:left}
+.legal-notice strong{color:#ffd700;font-size:1.1rem}
+.about-hero{text-align:center;margin-bottom:2rem;padding:0 0.5rem}
+.about-hero h1{font-size:1.8rem;background:linear-gradient(90deg,#ffd700,#ff8c00,#ffd700);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:1rem;line-height:1.3}
+.about-hero p{font-size:1rem;max-width:100%;margin:0 auto;line-height:1.4}
+.about-content{display:flex;flex-direction:column;gap:1.5rem}
+.about-section{padding:1.5rem;border-radius:16px;border-left:5px solid #ffd700}
+.about-section h2{color:#ffd700;margin-bottom:1rem;display:flex;align-items:center;gap:10px;font-size:1.3rem}
+.about-section p{line-height:1.6;margin-bottom:1rem;font-size:0.95rem;text-align:justify}
+.about-highlights{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1.2rem;margin:1.5rem 0}
+.highlight-item{text-align:center;padding:1.2rem}
+.highlight-item i{font-size:2.2rem;color:#ffd700;margin-bottom:1rem}
+.contact-info{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1.2rem;margin-top:1.5rem}
+.contact-card{background:rgba(255,255,255,0.05);padding:1.2rem;border-radius:12px;text-align:center;min-width:auto}
+.contact-card h3{color:#ffd700;margin-bottom:1rem;font-size:1.1rem}
+.contact-card a{color:#25d366;text-decoration:none;font-weight:500}
+.contact-card a:hover{text-decoration:underline}
+.category-management{margin:1rem 0;padding:1rem;background:rgba(255,255,255,0.05);border-radius:12px}
+.category-management h3{color:#ffd700;margin-bottom:1rem}
+.category-list{display:flex;flex-wrap:wrap;gap:0.5rem;margin-bottom:1rem}
+.category-item{background:rgba(255,215,0,0.2);padding:0.5rem 1rem;border-radius:20px;display:flex;align-items:center;gap:0.5rem}
+.category-item button{background:#e74c3c;color:white;border:none;border-radius:50%;width:20px;height:20px;cursor:pointer;font-size:0.7rem}
+
+/* Page Headings */
+.page h1, .page h2 {
+  text-align: center;
+  margin-bottom: 1.5rem;
+  word-wrap: break-word;
+  padding: 0 0.5rem;
+}
+
+#home h1 {
+  font-size: 1.8rem !important;
+}
+
+#about h1 {
+  font-size: 1.8rem !important;
+}
+
+#vendors h2 {
+  font-size: 1.6rem !important;
+}
+
+#register h2 {
+  font-size: 1.6rem !important;
+}
+
+#admin h2 {
+  font-size: 1.6rem !important;
+}
+
+/* FIXED: Improved placeholder styling */
+input::placeholder, textarea::placeholder {
+  color: #ffd700 !important;
+  opacity: 0.9 !important;
+  font-weight: 500 !important;
+}
+
+/* FIXED: Sticky search bars */
+#home .search-bar, #vendors .search-bar {
+  position: sticky;
+  top: 60px;
+  z-index: 900;
+  background: rgba(15,32,39,0.95);
+  backdrop-filter: blur(12px);
+  padding: 10px 0;
+  margin: -10px 0 10px 0;
+  border-bottom: 1px solid rgba(255,215,0,0.2);
+}
+
+/* Performance optimizations */
+.vendor-box, .card, .feature-card {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  perspective: 1000;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+.header, .search-bar {
+  will-change: transform;
+}
+
+/* FIXED: Mobile-specific adjustments */
+@media (max-width: 768px) {
+  header{padding:0.6rem 3%;gap:0.5rem}
+  .logo{font-size:1.3rem}
+  .logo img{display:none}
+  .datetime{font-size:0.7rem; position: static; transform: none; order: 2; width: auto;}
+  nav{gap:0.5rem; order: 3; width: 100%; justify-content: space-around;}
+  nav a{font-size:0.8rem;padding:0.3rem 0.4rem}
+  .page{padding:4.5rem 2% 2rem; min-height: calc(100vh - 4.5rem);}
+  .banner{padding:0.5rem}
+  .banner h1{font-size:1.6rem; display: block !important;}
+  .banner p{font-size:0.9rem}
+  .card{padding:1rem}
+  
+  #home h1 {
+    font-size: 1.6rem !important;
+    display: block !important;
+  }
+  
+  #about h1 {
+    font-size: 1.6rem !important;
+    display: block !important;
+  }
+  
+  #vendors h2 {
+    font-size: 1.4rem !important;
+    display: block !important;
+  }
+  
+  #register h2 {
+    font-size: 1.4rem !important;
+    display: block !important;
+  }
+  
+  #admin h2 {
+    font-size: 1.4rem !important;
+    display: block !important;
+  }
+  
+  #admin-body {
+    font-size: 0.7rem;
+  }
+  
+  #admin-body td, #admin-body th {
+    padding: 4px 3px;
+    font-size: 0.7rem;
+  }
+  
+  #dashboard .glow-btn {
+    display: block !important;
+    visibility: visible !important;
+  }
+  
+  input, select, textarea {
+    font-size: 16px;
+    padding: 0.8rem;
+  }
+}
+
+@media (max-width: 480px) {
+  header{flex-wrap:wrap;padding:0.5rem 2%}
+  .logo{font-size:1.2rem; order: 1;}
+  .datetime{font-size:0.65rem;order:2;width:auto;margin-top:0;}
+  nav{order:3;gap:0.4rem;width:100%;justify-content:space-between}
+  nav a{font-size:0.75rem;padding:0.3rem}
+  .page{padding:4rem 1% 1.5rem; min-height: calc(100vh - 4rem);}
+  .banner h1{font-size:1.4rem; display: block !important;}
+  .card{padding:0.8rem}
+  .vendor-grid{grid-template-columns:1fr}
+  .footer-content{grid-template-columns:1fr;gap:1rem}
+  
+  #home h1 {
+    font-size: 1.4rem !important;
+    line-height: 1.2;
+    display: block !important;
+  }
+  
+  #about h1 {
+    font-size: 1.4rem !important;
+    line-height: 1.2;
+    display: block !important;
+  }
+  
+  #vendors h2 {
+    font-size: 1.3rem !important;
+    line-height: 1.2;
+    display: block !important;
+  }
+  
+  #register h2 {
+    font-size: 1.3rem !important;
+    line-height: 1.2;
+    display: block !important;
+  }
+  
+  #admin h2 {
+    font-size: 1.3rem !important;
+    line-height: 1.2;
+    display: block !important;
+  }
+  
+  .about-hero h1 {
+    font-size: 1.4rem !important;
+    line-height: 1.2;
+    display: block !important;
+  }
+  
+  .about-hero p {
+    font-size: 0.9rem;
+    line-height: 1.3;
+  }
+  
+  #admin-body {
+    font-size: 0.65rem;
+  }
+  
+  #admin-body td, #admin-body th {
+    padding: 3px 2px;
+    font-size: 0.65rem;
+  }
+  
+  #admin-body button {
+    padding: 2px 4px;
+    font-size: 0.6rem;
+  }
+  
+  input, select, textarea {
+    padding: 0.7rem;
+  }
+}
+
+.placeholder-telugu::placeholder {
+  font-family: 'Noto Sans Telugu', sans-serif;
+  color: #ffd700 !important;
+  opacity: 0.9 !important;
+  font-weight: 500 !important;
+}
+
+.placeholder-english::placeholder {
+  font-family: 'Inter', sans-serif;
+  color: #ffd700 !important;
+  opacity: 0.9 !important;
+  font-weight: 500 !important;
+}
+
+.page {
+  -webkit-overflow-scrolling: touch;
+}
+
+.container, .card, .banner, .footer-content {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.vendor-img {
+  object-fit: cover;
+  background: #203a43;
+}
+
+.share-btn {
+  background: linear-gradient(45deg, #25d366, #128C7E) !important;
+  color: white !important;
+  border: none;
+  padding: 0.6rem 1rem;
+  border-radius: 50px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 0 15px rgba(37, 211, 102, 0.5);
+  transition: 0.3s;
+  font-size: 0.8rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.share-btn:hover {
+  transform: scale(1.06);
+  box-shadow: 0 0 25px rgba(37, 211, 102, 0.7);
+}
+
+.selected-row {
+  background-color: rgba(255, 215, 0, 0.2) !important;
+}
+
+.contact-number {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 5px;
+}
+
+.update-form {
+  background: rgba(255, 255, 255, 0.05);
+  padding: 1rem;
+  border-radius: 12px;
+  margin-top: 1rem;
+  border: 1px solid rgba(255, 215, 0, 0.3);
+}
+
+.update-form h4 {
+  color: #ffd700;
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+.update-form input, .update-form select, .update-form textarea {
+  margin-bottom: 0.8rem;
+}
+
+/* Vendor Edit Button */
+.edit-btn {
+  background: linear-gradient(45deg, #3498db, #2980b9) !important;
+  color: white !important;
+  border: none;
+  padding: 0.6rem 1rem;
+  border-radius: 50px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 0 15px rgba(52, 152, 219, 0.5);
+  transition: 0.3s;
+  font-size: 0.8rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.edit-btn:hover {
+  transform: scale(1.06);
+  box-shadow: 0 0 25px rgba(52, 152, 219, 0.7);
+}
+
+/* Vendor Edit Form */
+.edit-form {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 1.5rem;
+  margin-top: 1rem;
+  border: 2px solid rgba(52, 152, 219, 0.5);
+}
+
+.edit-form h3 {
+  color: #3498db;
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+.edit-form .form-actions {
+  display: flex;
+  gap: 0.8rem;
+  justify-content: center;
+  margin-top: 1rem;
+}
+</style>
+
+</head>
+
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo" style="flex-direction:column;align-items:flex-start;gap:2px;">
+      <div style="display:flex;align-items:center;gap:6px;">
+        <span style="font-weight:700;background:linear-gradient(90deg,#ffd700,#ff8c00);-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-size:1.8rem;">Lokonex</span>
+      </div>
+      <div class="telugu" style="font-size:0.85rem;color:#ffd700;margin-left:0px;">మన ఊరు – మన సేవలు – మన కనెక్ట్.</div>
+    </div>
+  </div>
+  <div class="datetime" id="datetime">Loading...</div>
+  <nav>
+    <a onclick="show('home')">Home</a>
+    <a onclick="show('about')">About</a>
+    <a onclick="show('vendors')">Vendors</a>
+    <a onclick="show('register')">Register</a>
+    <a onclick="show('admin')">Admin</a>
+  </nav>
+</header>
+
+<div id="home" class="page active">
+  <div class="banner">
+    <h1>Connecting People with Local Services</h1>
+    <p style="font-size:1.2rem;margin:0.5rem 0">Quickly, Safely, and Simply</p>
+    <p class="telugu">ప్రజలను స్థానిక సేవలతో కలుపుతోంది - త్వరగా, సురక్షితంగా మరియు సరళంగా</p>
+    <p style="font-size:1rem;margin:1rem 0">One Tap to Find Electricians, Plumbers, Packers,Tutors, Professionals & More!</p>
+    <div class="search-bar">
+      <input type="text" id="global-search" placeholder="Search name, service or area..." class="placeholder-english">
+      <button class="glow-btn" onclick="optimizedGlobalSearch()">Search</button>
+    </div>
+    <div class="categories" id="categories"></div>
+    
+    <div class="project-features">
+      <div class="feature-card">
+        <i class="fas fa-search"></i>
+        <h3>Find Vendors</h3>
+        <p>Search and connect with verified local service providers</p>
+        <p class="telugu">ధృవీకరించబడిన స్థానిక సేవా ప్రదాతలను కనుగొనండి</p>
+      </div>
+      <div class="feature-card">
+        <i class="fas fa-user-plus"></i>
+        <h3>Register as Vendor</h3>
+        <p>List your services and get more customers</p>
+        <p class="telugu">మీ సేవలను నమోదు చేసుకొని మరిన్ని కస్టమర్లను పొందండి</p>
+      </div>
+      <div class="feature-card">
+        <i class="fas fa-phone-alt"></i>
+        <h3>Direct Contact</h3>
+        <p>Call or WhatsApp vendors directly</p>
+        <p class="telugu">వెండర్లను నేరుగా కాల్ చేయండి లేదా వాట్సాప్ చేయండి</p>
+      </div>
+      <div class="feature-card">
+        <i class="fas fa-shield-alt"></i>
+        <h3>Simple & Secure</h3>
+        <p>Easy to use platform with transparent process</p>
+        <p class="telugu">సులభంగా ఉపయోగించదగిన ప్లాట్‌ఫారమ్</p>
+      </div>
+    </div>
+    
+    <div class="legal-notice">
+      <p><strong>Legal Notice:
+<a href="legal.html" style="color: white; text-decoration: none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">Click Here to Read Our Legal Policy</a>
+</strong></p>
+      <p>Lokonex only connects people — we do not take money, manage services, or hold any responsibility for vendor actions or customer issues.</p>
+      <p><strong>చట్టపు నోటీసు:</strong></p>
+      <p class="telugu">Lokonex కేవలం కస్టమర్ మరియు వెండర్‌ని కలుపుతుంది — డబ్బు, సేవల నాణ్యత, లేదా సమస్యలపై బాధ్యత వహించదు.</p>
+    </div>
+  </div>
+</div>
+
+<div id="about" class="page">
+  <div class="card">
+    <div class="about-hero">
+      <h1>About Lokonex</h1>
+      <p class="telugu" style="font-size:1.4rem;color:#ffd700">లోకోనెక్స్ గురించి</p>
+      <p>Connecting with trusted local services since 2025</p>
+      <p class="telugu">2025 నుండి విశ్వసనీయ స్థానిక సేవలతో కలుపుతోంది</p>
+    </div>
+    
+    <div class="about-content">
+      <div class="about-section">
+        <h2><i class="fas fa-bullseye icon-glow"></i> Our Mission</h2>
+        <p>To empower every household in Hanamakonda with instant access to trusted local professionals — electricians, tutors, mechanics, and more — in one tap. We believe in strengthening local economies by connecting skilled professionals with those who need their services.</p>
+        <p class="telugu"> ప్రతి ఇంటికి విశ్వసనీయ స్థానిక నిపుణులను ఒక్క ట్యాప్‌లో అందించడం. నైపుణ్యం కలిగిన నిపుణులను వారి సేవలు అవసరమయ్యే వారితో కలపడం ద్వారా స్థానిక ఆర్థిక వ్యవస్థలను బలోపేతం చేయడంపై మాకు నమ్మకం ఉంది.</p>
+      </div>
+      
+      <div class="about-section">
+        <h2><i class="fas fa-star icon-glow"></i> What We Offer</h2>
+        <p>Lokonex provides a seamless platform for residents to find and connect with verified local service providers. Our platform ensures transparency, ease of use, and direct communication between customers and vendors.</p>
+        <p class="telugu">లోకోనెక్స్ నివాసితులకు ధృవీకరించబడిన స్థానిక సేవా ప్రదాతలను కనుగొనడానికి మరియు వారితో కనెక్ట్ అవ్వడానికి ప్లాట్‌ఫారమ్‌ను అందిస్తుంది. మా ప్లాట్‌ఫారమ్ పారదర్శకత, ఉపయోగించడంలో సౌలభ్యం మరియు కస్టమర్లు మరియు విక్రేతల మధ్య నేరుగా కమ్యూనికేషన్‌ను నిర్ధారిస్తుంది.</p>
+        
+        <div class="about-highlights">
+          <div class="highlight-item">
+            <i class="fas fa-gift"></i>
+            <h3>First 10 FREE</h3>
+            <p class="telugu">మొదటి 10 మంది ఉచితం</p>
+          </div>
+          <div class="highlight-item">
+            <i class="fas fa-rupee-sign"></i>
+            <h3>₹299 One-Time</h3>
+            <p class="telugu">₹299 ఒక్కసారి ఫీజు</p>
+          </div>
+          <div class="highlight-item">
+            <i class="fas fa-calendar-alt"></i>
+            <h3>1-Year Validity</h3>
+            <p class="telugu">1 సంవత్సరం వాలిడిటీ</p>
+          </div>
+          <div class="highlight-item">
+            <i class="fas fa-check-circle"></i>
+            <h3>Verified Only</h3>
+            <p class="telugu">ధృవీకరించబడినవి మాత్రమే</p>
+          </div>
+        </div>
+      </div>
+      
+      <div class="about-section">
+        <h2><i class="fas fa-tools icon-glow"></i> Service Categories</h2>
+        <p>We cover a wide range of services to meet all your local needs. Our service categories include: Electricians, Plumbers, Carpenters, Mechanics, Painters, Teachers/Tutors, Doctors/Clinics, Lawyers/Legal Advisors, Astrologers, Travel Agencies, Salons & Beauty Parlours, Tailors/Boutiques, and many more services to serve the Hanamakonda community.</p>
+        <p class="telugu">మీ అన్ని స్థానిక అవసరాలను తీర్చడానికి మేము విస్తృత శ్రేణి సేవలను కవర్ చేస్తాము. మా సేవా వర్గాలలో ఇవి ఉన్నాయి: ఎలక్ట్రీషియన్లు, ప్లంబర్లు, కార్పెంటర్లు, మెకానిక్లు, పెయింటర్లు, టీచర్లు/ట్యూటర్లు, డాక్టర్లు/క్లినిక్లు, లాయర్లు/లీగల్ అడ్వైజర్లు, జ్యోతిష్యులు, ట్రావెల్ ఏజెన్సీలు, సెలూన్లు & బ్యూటీ పార్లర్లు, టైలర్లు/బూటిక్లు మరియు హనమకొండ సమాజానికి సేవలందించడానికి మరిన్ని సేవలు.</p>
+      </div>
+      
+      <div class="about-section">
+        <h2><i class="fas fa-headset icon-glow"></i> Contact Us</h2>
+        <p>Have questions or need support? Our team is here to help you get the most out of Lokonex.</p>
+        <p class="telugu">ప్రశ్నలు ఉన్నాయా లేదా మద్దతు కావాలా? లోకోనెక్స్ నుండి గరిష్ట ప్రయోజనం పొందడంలో మీకు సహాయపడటానికి మా బృందం ఇక్కడే ఉంది.</p>
+        
+        <div class="contact-info">
+          <div class="contact-card">
+            <h3><i class="fas fa-phone"></i> Call Us</h3>
+            <p><a href="tel:8500172644">8500172644</a></p>
+          </div>
+          <div class="contact-card">
+            <h3><i class="fab fa-whatsapp"></i> WhatsApp</h3>
+            <p><a href="https://wa.me/918500172644" target="_blank">Chat with Us</a></p>
+          </div>
+          <div class="contact-card">
+            <h3><i class="fas fa-globe"></i> Website</h3>
+            <p><a href="https://www.svrcomputers.in" target="_blank">www.svrcomputers.in</a></p>
+          </div>
+          <div class="contact-card">
+            <h3><i class="fas fa-map-marker-alt"></i> Location</h3>
+            <p>Julywada Circle, Hanamkonda Telangana</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="vendors" class="page">
+  <div class="card">
+    <h2 style="text-align:center">Verified Local Vendors</h2>
+    <div class="search-bar">
+      <input type="text" id="vendor-search" placeholder="Search vendors..." class="placeholder-english">
+      <button class="glow-btn" onclick="optimizedFilterVendors()">Go</button>
+    </div>
+    <div class="vendor-grid" id="vendor-grid"></div>
+  </div>
+</div>
+
+<div id="register" class="page">
+  <div class="card">
+    <h2 style="text-align:center">Join as Vendor</h2>
+    <form id="vendor-form">
+      <label>Full Name * / పూర్తి పేరు *</label>
+      <input type="text" name="name" required placeholder="Enter your full name / మీ పూర్తి పేరు నమోదు చేయండి" class="placeholder-english">
+      
+      <label>Mobile * / మొబైల్ *</label>
+      <input type="tel" name="mobile" required placeholder="Enter your mobile number / మీ మొబైల్ నంబర్ నమోదు చేయండి" class="placeholder-english">
+      
+      <label>Service Category * / సేవా వర్గం *</label>
+      <select name="service" id="service-select" onchange="toggleCustom(this,'custom-service')" required>
+        <option value="">-- Select Service -- / సేవను ఎంచుకోండి --</option>
+      </select>
+      
+      <input type="text" id="custom-service" name="custom_service" placeholder="Enter your service / మీ సేవను నమోదు చేయండి" class="placeholder-english">
+      
+      <label>Area * / ప్రాంతం *</label>
+      <input type="text" name="area" required placeholder="Enter your area / మీ ప్రాంతం నమోదు చేయండి" class="placeholder-english">
+      
+      <label>Experience (Years) * / అనుభవం (సంవత్సరాలు) *</label>
+      <input type="number" name="exp" min="0" required placeholder="Enter years of experience / అనుభవం సంవత్సరాలు నమోదు చేయండి" class="placeholder-english">
+      
+      <label>Photo (Optional) / ఫోటో (ఐచ్ఛికం)</label>
+      <input type="file" name="photo" accept="image/*">
+      <p> Pls Upload your photo size  below 20kb only. Photo Size above 20kb not accepted </p>
+      <p>దయచేసి మీ ఫోటోను 20KB లోపు మాత్రమే అప్‌లోడ్ చేయండి. 20KB కంటే ఎక్కువ సైజు ఉన్న ఫోటోలు అంగీకరించబడవు.</p> 
+
+      
+      <label>Description * / వివరణ *</label>
+      <textarea name="desc" rows="3" required placeholder="Describe your services / మీ సేవలను వివరించండి" class="placeholder-english"></textarea>
+      
+      <button type="submit" class="glow-btn" style="width:100%;padding:1rem;margin-top:1.5rem">
+        Submit Registration / నమోదును సమర్పించండి
+      </button>
+    </form>
+  </div>
+</div>
+
+<div id="payment-page" class="page">
+  <div class="card">
+    <h2 style="text-align:center;color:#ffd700">Complete Payment</h2>
+    <p style="font-size:1.1rem">First 50 FREE! You are #<b id="reg-number">51</b></p>
+    <p style="font-size:1rem">₹299 Registration Fee</p>
+    <img src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=upi://pay?pa=8500172644@ybl&am=299&cu=INR&tn=Lokonex" alt="Pay QR">
+    <p style="font-size:1rem;margin:1rem 0"><b>UPI ID:</b> <span style="color:#ffd700">8500172644@ybl</span></p>
+    <button class="glow-btn" id="paid-btn" style="width:100%;padding:1rem;font-size:1rem">
+      I Have Paid, Submit for Approval
+    </button>
+    <button class="glow-btn" onclick="show('home')" style="width:100%;margin-top:1rem;background:#666">
+      Back to Home
+    </button>
+  </div>
+</div>
+
+<div id="admin" class="page">
+  <div class="card">
+    <div id="login-box">
+      <h2 style="text-align:center">Admin Login</h2>
+      <input type="text" id="admin-user" placeholder="Username" style="width:80%;padding:0.8rem;margin:1rem auto;display:block"><br>
+      <input type="password" id="admin-pass" placeholder="Password" style="width:80%;padding:0.8rem;margin:1rem auto;display:block"><br>
+      <button class="glow-btn" onclick="adminLogin()">Login</button>
+    </div>
+    <div id="dashboard" style="display:none;overflow-x:auto">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+        <h2>Admin Dashboard</h2>
+        <button class="glow-btn" onclick="adminLogout()" style="background:#e74c3c">Logout</button>
+      </div>
+      <p>Free Slots: <b id="free-slots">50</b> | Total: <b id="total-v">0</b></p>
+      
+      <div style="margin:1rem 0;padding:1rem;background:rgba(255,215,0,0.1);border-radius:12px;border:1px solid rgba(255,215,0,0.3)">
+        <h3 style="color:#ffd700;margin-bottom:1rem;text-align:center">
+          <i class="fas fa-shield-alt"></i> Data Protection Center
+        </h3>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0.8rem;">
+          <button class="glow-btn" onclick="completeOneClickBackup()" style="background:#27ae60">
+            <i class="fas fa-download"></i> One-Click Backup
+          </button>
+          <button class="glow-btn" onclick="oneClickRestore()" style="background:#e67e22">
+            <i class="fas fa-upload"></i> One-Click Restore
+          </button>
+          <button class="glow-btn" onclick="showEnhancedBackupInfo()" style="background:#3498db">
+            <i class="fas fa-info-circle"></i> Backup Info
+          </button>
+          <button class="glow-btn" onclick="createAutoBackup()" style="background:#9b59b6">
+            <i class="fas fa-sync"></i> Create Backup Now
+          </button>
+        </div>
+      </div>
+      
+      <div class="category-management">
+        <h3>Manage Service Categories</h3>
+        <div style="display:flex;gap:0.5rem;margin-bottom:1rem">
+          <input type="text" id="new-category" placeholder="New category name" style="flex:1">
+          <button class="glow-btn" onclick="addCategory()">Add Category</button>
+        </div>
+        <div class="category-list" id="category-list"></div>
+      </div>
+      
+      <h3>All Vendors</h3>
+      <div style="margin-bottom:1rem">
+        <button class="glow-btn" onclick="deleteSelected()" style="background:#e74c3c">Delete Selected</button>
+        <button class="glow-btn" onclick="updateSelected()" style="background:#3498db">Update Selected</button>
+        <button class="glow-btn" onclick="exportBackup()" style="background:#9b59b6">
+          <i class="fas fa-download"></i> Export Backup
+        </button>
+        <button class="glow-btn" onclick="importBackup()" style="background:#2ecc71">
+          <i class="fas fa-upload"></i> Import Backup
+        </button>
+        <button class="glow-btn" onclick="viewBackupInfo()" style="background:#f39c12">
+          <i class="fas fa-info-circle"></i> Backup Info
+        </button>
+        <span id="selected-count" style="margin-left:10px;color:#ffd700">0 selected</span>
+      </div>
+      <input type="file" id="backup-file" accept=".json" style="display:none">
+      <table style="width:100%;min-width:600px;border-collapse:collapse">
+        <thead>
+          <tr>
+            <th><input type="checkbox" onclick="toggleAll(this)"></th>
+            <th>Name</th>
+            <th>Mobile</th>
+            <th>Service</th>
+            <th>Reg Date & Time</th>
+            <th>Status</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="admin-body"></tbody>
+      </table>
+      
+      <div id="update-form-container" style="display:none"></div>
+    </div>
+  </div>
+</div>
+
+<div id="popup">
+  <h2 id="popup-title">Success!</h2>
+  <p id="popup-msg">Done.</p>
+  <button class="glow-btn" onclick="closePopup()">OK</button>
+</div>
+
+<div id="contact-popup">
+  <h2>Important Notice</h2>
+  <p>Lokonex only connects customers with vendors. We are not responsible for service quality, payments, or any issues that may arise.</p>
+  <p class="telugu">లోకోనెక్స్ కేవలం కస్టమర్లను వెండర్లతో కలుపుతుంది. సేవ నాణ్యత, చెల్లింపులు లేదా ఏవైనా సమస్యలకు మేము బాధ్యత వహించము.</p>
+  <button class="glow-btn" onclick="proceedToContact()">I Understand</button>
+  <button onclick="closeContactPopup()" style="background:#666;margin-left:0.5rem;margin-top:0.5rem">Cancel</button>
+</div>
+
+<footer>
+  <div class="footer-content">
+    <div class="footer-section">
+      <h3>Quick Links</h3>
+      <a onclick="show('home')">Home</a>
+      <a onclick="show('about')">About</a>
+      <a onclick="show('vendors')">Find Vendors</a>
+      <a onclick="show('register')">Register as Vendor</a>
+      <a href="legal.html" style="color: white; text-decoration: none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">Legal Policy</a>
+    </div>
+    
+    <div class="footer-section">
+      <h3>Contact Info</h3>
+      <p><i class="fas fa-phone"></i> <span class="contact-number">8500172644</span></p>
+      <p><i class="fab fa-whatsapp"></i> <span class="contact-number">8500172644</span></p>
+      <p><i class="fas fa-map-marker-alt"></i> Julywada Circle, <br> Hanamkonda, Telangana</p>
+    </div>
+    
+    <div class="footer-section">
+      <h3>Service Categories</h3>
+      <p>Electricians • Plumbers • Tutors</p>
+      <p>Mechanics • Painters • Doctors</p>
+      <p>Salons • Tailors • And More...</p>
+    </div>
+    
+    <div class="footer-section">
+      <h3>Share This App</h3>
+      <p>Help others discover Lokonex by sharing this app</p>
+      <p class="telugu">లోకోనెక్స్ మరికొందరికి షేర్ చేసి, వారు కూడా ఈ అద్భుతమైన యాప్‌ను ఉపయోగించేందుకు సహాయం చేయండి</p>
+      <button class="share-btn" onclick="shareApp()">
+        <i class="fas fa-share-alt"></i> Share with Others
+      </button>
+    </div>
+  </div>
+  
+  <div class="copyright">
+    <p>© 2025 Lokonex . All rights reserved. <br> Designed and Developed by SVR Computers</p>
+  </div>
+</footer>
+
+<script>
+// Firebase configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyB8WfD7DneS5nQXOLxB6c_D-n9aFgttr_w",
+  authDomain: "local-market2025.firebaseapp.com",
+  databaseURL: "https://local-market2025-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "local-market2025",
+  storageBucket: "local-market2025.firebasestorage.app",
+  messagingSenderId: "1092213380873",
+  appId: "1:1092213380873:web:d89bebc1bd8000cba525d8",
+  measurementId: "G-HMZXGT78G0"
+};
+
+// Initialize Firebase
+firebase.initializeApp(firebaseConfig);
+const database = firebase.database();
+
+// Cache management
+const CACHE_KEYS = {
+  VENDORS: 'vendors_v3',
+  CATEGORIES: 'categories_v2',
+  TIMESTAMP: 'data_timestamp'
+};
+
+let CATEGORIES = JSON.parse(localStorage.getItem(CACHE_KEYS.CATEGORIES)) || [
+  "Electricians", "Plumbers", "Carpenters", "Mechanics", "Painters", 
+  "Teachers / Tutors", "Doctors / Clinics", "Lawyers / Legal Advisors", 
+  "Astrologers", "Travel Agencies", "Salons & Beauty Parlours", 
+  "Tailors / Boutiques"
+];
+
+let vendors = JSON.parse(localStorage.getItem('vendors_v2')) || [];
+let tempVendor = null;
+let contactAction = null;
+let searchTimeout;
+
+// ==================== VENDOR REGISTRATION & EDIT SYSTEM ====================
+
+/**
+ * Handle vendor form submission
+ */
+document.getElementById('vendor-form').addEventListener('submit', function(e) {
+  e.preventDefault();
+  const f = this.elements;
+  
+  // Get approved vendors count
+  const approvedCount = vendors.filter(v => v.approved).length;
+  const isFree = approvedCount < 1; // First 50 are free
+  
+  const photoFile = f.photo.files[0];
+  let photoData = 'https://via.placeholder.com/150/203a43/ffd700?text=Photo';
+
+  if (photoFile) {
+    const reader = new FileReader();
+    reader.onload = function(event) {
+      photoData = event.target.result;
+      saveVendor(photoData, f, isFree);
+    };
+    reader.readAsDataURL(photoFile);
+  } else {
+    saveVendor(photoData, f, isFree);
+  }
+});
+
+/**
+ * Save vendor to system
+ */
+function saveVendor(photoData, f, isFree) {
+  const vendor = {
+    id: Date.now(),
+    name: f.name.value.trim(),
+    mobile: f.mobile.value.trim(),
+    service: f.service.value === 'Others' ? f.custom_service.value.trim() : f.service.value,
+    location: f.area.value.trim(),
+    experience: f.exp.value,
+    photo: photoData,
+    description: f.desc.value.trim(),
+    paid: !isFree,
+    approved: isFree, // Auto-approve if free
+    regDate: new Date().toLocaleDateString('en-IN'),
+    regDateTime: new Date().toLocaleString('en-IN')
+  };
+
+  // Save vendor to system
+  vendors.push(vendor);
+  saveV();
+  
+  if (isFree) {
+    // Free registration - show success and go to home
+    popup('Registration Successful!', 'You are now LIVE on Lokonex! Your listing is active and visible to customers.');
+    document.getElementById('vendor-form').reset();
+    show('home');
+  } else {
+    // Paid registration - show payment page
+    document.getElementById('reg-number').textContent = vendors.filter(v => v.approved).length + 1;
+    show('payment-page');
+  }
+  
+  updateFreeSlots();
+}
+
+/**
+ * Handle payment completion
+ */
+document.getElementById('paid-btn').onclick = () => {
+  // Find the latest unapproved vendor (the one who just registered)
+  const latestVendor = vendors
+    .filter(v => !v.approved)
+    .sort((a, b) => b.id - a.id)[0];
+  
+  if (latestVendor) {
+    // Mark as paid (already done during registration)
+    popup('Thank You!', 'Your registration is submitted successfully. Admin will approve soon.');
+    show('home');
+  } else {
+    popup('Error', 'No pending registration found.');
+  }
+};
+
+/**
+ * Show vendor edit form
+ */
+function showEditForm(vendorId) {
+  const vendor = vendors.find(v => v.id === vendorId);
+  if (!vendor) return;
+  
+  const vendorBox = document.querySelector(`.vendor-box[data-id="${vendorId}"]`);
+  if (!vendorBox) return;
+  
+  // Create edit form
+  const editForm = document.createElement('div');
+  editForm.className = 'edit-form';
+  editForm.innerHTML = `
+    <h3>Edit Your Details</h3>
+    <input type="text" id="edit-name" value="${vendor.name}" placeholder="Full Name">
+    <input type="tel" id="edit-mobile" value="${vendor.mobile}" placeholder="Mobile">
+    <select id="edit-service">
+      ${CATEGORIES.map(c => `<option value="${c}" ${c === vendor.service ? 'selected' : ''}>${c}</option>`).join('')}
+      <option value="Others" ${!CATEGORIES.includes(vendor.service) ? 'selected' : ''}>Others</option>
+    </select>
+    <input type="text" id="edit-custom-service" value="${!CATEGORIES.includes(vendor.service) ? vendor.service : ''}" placeholder="Custom Service" style="${CATEGORIES.includes(vendor.service) ? 'display:none' : ''}">
+    <input type="text" id="edit-location" value="${vendor.location}" placeholder="Area">
+    <input type="number" id="edit-experience" value="${vendor.experience}" placeholder="Experience (Years)">
+    <textarea id="edit-description" placeholder="Description">${vendor.description}</textarea>
+    <div class="form-actions">
+      <button class="glow-btn" onclick="saveVendorEdit(${vendorId})">Save Changes</button>
+      <button class="glow-btn" onclick="cancelEdit(${vendorId})" style="background:#666">Cancel</button>
+    </div>
+  `;
+  
+  // Replace vendor box with edit form
+  vendorBox.style.display = 'none';
+  vendorBox.parentNode.insertBefore(editForm, vendorBox.nextSibling);
+  
+  // Handle service category change
+  document.getElementById('edit-service').addEventListener('change', function() {
+    document.getElementById('edit-custom-service').style.display = 
+      this.value === 'Others' ? 'block' : 'none';
+  });
+}
+
+/**
+ * Save vendor edits
+ */
+function saveVendorEdit(vendorId) {
+  const vendorIndex = vendors.findIndex(v => v.id === vendorId);
+  if (vendorIndex === -1) return;
+  
+  const serviceValue = document.getElementById('edit-service').value;
+  
+  // Update vendor details
+  vendors[vendorIndex].name = document.getElementById('edit-name').value.trim();
+  vendors[vendorIndex].mobile = document.getElementById('edit-mobile').value.trim();
+  vendors[vendorIndex].service = serviceValue === 'Others' 
+    ? document.getElementById('edit-custom-service').value.trim() 
+    : serviceValue;
+  vendors[vendorIndex].location = document.getElementById('edit-location').value.trim();
+  vendors[vendorIndex].experience = document.getElementById('edit-experience').value;
+  vendors[vendorIndex].description = document.getElementById('edit-description').value.trim();
+  
+  // Save to storage
+  saveV();
+  
+  // Show success message
+  popup('Success', 'Your details have been updated successfully!');
+  
+  // Refresh vendors display
+  showVendors();
+}
+
+/**
+ * Cancel edit and show vendor box again
+ */
+function cancelEdit(vendorId) {
+  const vendorBox = document.querySelector(`.vendor-box[data-id="${vendorId}"]`);
+  const editForm = vendorBox.nextSibling;
+  
+  if (editForm && editForm.classList.contains('edit-form')) {
+    editForm.remove();
+  }
+  
+  vendorBox.style.display = 'block';
+}
+
+// ==================== COMPLETE ONE-CLICK BACKUP SYSTEM ====================
+
+/**
+ * ONE-CLICK COMPLETE BACKUP
+ */
+function completeOneClickBackup() {
+  try {
+    const backupData = {
+      vendors: JSON.parse(localStorage.getItem('vendors_v2')) || [],
+      categories: JSON.parse(localStorage.getItem('serviceCategories')) || [],
+      timestamp: Date.now(),
+      date: new Date().toLocaleString('en-IN'),
+      totalVendors: vendors.length,
+      totalCategories: CATEGORIES.length
+    };
+
+    const dataStr = JSON.stringify(backupData, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+    
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `lokonex_complete_backup_${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    setTimeout(() => URL.revokeObjectURL(url), 100);
+    
+    updateBackupHistory();
+    
+    showBackupSuccess(backupData);
+    
+    return true;
+    
+  } catch (error) {
+    console.error('One-Click Backup failed:', error);
+    popup('❌ Backup Failed', 'Error: ' + error.message);
+    return false;
+  }
+}
+
+/**
+ * Update backup history
+ */
+function updateBackupHistory() {
+  const history = JSON.parse(localStorage.getItem('backup_history') || '[]');
+  
+  history.unshift({
+    timestamp: Date.now(),
+    date: new Date().toLocaleString('en-IN'),
+    type: 'manual',
+    vendorsCount: vendors.length,
+    categoriesCount: CATEGORIES.length
+  });
+  
+  if (history.length > 10) {
+    history.splice(10);
+  }
+  
+  localStorage.setItem('backup_history', JSON.stringify(history));
+}
+
+/**
+ * Show backup success details
+ */
+function showBackupSuccess(backupData) {
+  const successMsg = 
+    `✅ COMPLETE BACKUP SUCCESSFUL!\n\n` +
+    `📊 Data Summary:\n` +
+    `• Vendors: ${backupData.vendors.length}\n` +
+    `• Categories: ${backupData.categories.length}\n` +
+    `• Backup Date: ${backupData.date}\n\n` +
+    `💾 File: lokonex_complete_backup_*.json\n\n` +
+    `🛡️ Your data is now safely backed up!`;
+  
+  popup('Backup Complete', successMsg);
+}
+
+/**
+ * ONE-CLICK RESTORE FROM FILE
+ */
+function oneClickRestore() {
+  const fileInput = document.createElement('input');
+  fileInput.type = 'file';
+  fileInput.accept = '.json';
+  fileInput.style.display = 'none';
+  
+  fileInput.onchange = function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = function(event) {
+      try {
+        const backupData = JSON.parse(event.target.result);
+        restoreFromBackup(backupData);
+      } catch (error) {
+        popup('❌ Restore Failed', 'Invalid backup file: ' + error.message);
+      }
+    };
+    reader.readAsText(file);
+  };
+  
+  document.body.appendChild(fileInput);
+  fileInput.click();
+  document.body.removeChild(fileInput);
+}
+
+/**
+ * Restore from backup data
+ */
+function restoreFromBackup(backupData) {
+  if (!backupData.vendors || !backupData.categories) {
+    popup('❌ Invalid Backup', 'This is not a valid Lokonex backup file');
+    return;
+  }
+  
+  const confirmed = confirm(
+    `🔁 COMPLETE DATA RESTORE?\n\n` +
+    `📊 Vendors: ${backupData.vendors.length}\n` +
+    `📁 Categories: ${backupData.categories.length}\n` +
+    `📅 Backup Date: ${backupData.date}\n\n` +
+    `⚠️ WARNING: This will REPLACE all current data!`
+  );
+  
+  if (!confirmed) return;
+  
+  try {
+    createAutoBackup();
+    
+    localStorage.setItem('vendors_v2', JSON.stringify(backupData.vendors));
+    localStorage.setItem('serviceCategories', JSON.stringify(backupData.categories));
+    
+    vendors = backupData.vendors;
+    CATEGORIES = backupData.categories;
+    
+    saveV();
+    saveCategories();
+    
+    updateCategoriesDisplay();
+    showVendors();
+    updateFreeSlots();
+    
+    popup('✅ Restore Complete', 
+      `All data restored successfully!\n\n` +
+      `📊 Vendors: ${vendors.length}\n` +
+      `📁 Categories: ${CATEGORIES.length}\n\n` +
+      `Page will reload in 3 seconds...`);
+    
+    setTimeout(() => location.reload(), 3000);
+    
+  } catch (error) {
+    popup('❌ Restore Failed', 'Error during restore: ' + error.message);
+  }
+}
+
+/**
+ * Enhanced backup information
+ */
+function showEnhancedBackupInfo() {
+  const autoBackup = JSON.parse(localStorage.getItem('lokonex_auto_backup') || '{}');
+  const backupHistory = JSON.parse(localStorage.getItem('backup_history') || '[]');
+  
+  let info = `🛡️ BACKUP & RECOVERY SYSTEM\n\n`;
+  
+  info += `📊 CURRENT DATA:\n`;
+  info += `• Vendors: ${vendors.length}\n`;
+  info += `• Categories: ${CATEGORIES.length}\n`;
+  info += `• Free Slots: ${50 - vendors.filter(v => v.approved).length}\n\n`;
+  
+  info += `🔄 BACKUP STATUS:\n`;
+  
+  if (autoBackup.date) {
+    info += `• Last Auto Backup: ${autoBackup.date}\n`;
+    info += `• Manual Backups: ${backupHistory.length}\n`;
+    info += `• Total Vendors in Backup: ${autoBackup.totalVendors || 0}\n\n`;
+  } else {
+    info += `• No backups found\n\n`;
+  }
+  
+  info += `🚀 QUICK ACTIONS:\n`;
+  info += `1. One-Click Backup - Downloads complete data\n`;
+  info += `2. One-Click Restore - Upload backup file\n`;
+  info += `3. Auto-backup runs every 24 hours\n\n`;
+  
+  info += `💡 TIPS:\n`;
+  info += `• Backup before major changes\n`;
+  info += `• Store backups in multiple locations\n`;
+  info += `• Test restore process periodically`;
+  
+  popup('Backup & Recovery', info);
+}
+
+// Cache functions
+function isCacheValid() {
+  const timestamp = localStorage.getItem(CACHE_KEYS.TIMESTAMP);
+  if (!timestamp) return false;
+  return (Date.now() - parseInt(timestamp)) < 5 * 60 * 1000; // 5 minutes
+}
+
+function saveToCache(data, key) {
+  localStorage.setItem(key, JSON.stringify(data));
+  localStorage.setItem(CACHE_KEYS.TIMESTAMP, Date.now().toString());
+}
+
+function loadFromCache(key) {
+  const cached = localStorage.getItem(key);
+  return cached ? JSON.parse(cached) : null;
+}
+
+function useLocalStorageFallback() {
+  const cachedVendors = loadFromCache(CACHE_KEYS.VENDORS);
+  const cachedCategories = loadFromCache(CACHE_KEYS.CATEGORIES);
+  
+  if (cachedVendors) vendors = cachedVendors;
+  if (cachedCategories) CATEGORIES = cachedCategories;
+  
+  updateCategoriesDisplay();
+  showVendors();
+  updateFreeSlots();
+}
+
+// Firebase operations
+function loadFromFirebase() {
+  const categoriesPromise = database.ref('categories').once('value');
+  const vendorsPromise = database.ref('vendors').once('value');
+  
+  Promise.all([categoriesPromise, vendorsPromise])
+    .then(([catSnapshot, venSnapshot]) => {
+      // Categories
+      const firebaseCategories = catSnapshot.val();
+      if (firebaseCategories && Object.keys(firebaseCategories).length > 0) {
+        CATEGORIES = Object.values(firebaseCategories);
+        saveToCache(CATEGORIES, CACHE_KEYS.CATEGORIES);
+        updateCategoriesDisplay();
+      }
+      
+      // Vendors
+      const firebaseVendors = venSnapshot.val();
+      if (firebaseVendors && Object.keys(firebaseVendors).length > 0) {
+        vendors = Object.values(firebaseVendors);
+        saveToCache(vendors, CACHE_KEYS.VENDORS);
+        showVendors();
+        updateFreeSlots();
+      }
+    })
+    .catch(error => {
+      console.error('Firebase load error:', error);
+      useLocalStorageFallback();
+    });
+}
+
+function saveCategories() {
+  saveToCache(CATEGORIES, CACHE_KEYS.CATEGORIES);
+  const categoriesRef = database.ref('categories');
+  categoriesRef.remove();
+  CATEGORIES.forEach(category => {
+    categoriesRef.push(category);
+  });
+}
+
+function saveV() { 
+  saveToCache(vendors, CACHE_KEYS.VENDORS);
+  const vendorsRef = database.ref('vendors');
+  vendorsRef.remove();
+  vendors.forEach(vendor => {
+    vendorsRef.push(vendor);
+  });
+}
+
+function setupFirebaseListeners() {
+  database.ref('vendors').orderByKey().limitToLast(1).on('child_added', (snapshot) => {
+    const newVendor = snapshot.val();
+    if (!vendors.find(v => v.id === newVendor.id)) {
+      vendors.push(newVendor);
+      saveToCache(vendors, CACHE_KEYS.VENDORS);
+      
+      if (document.getElementById('vendors').classList.contains('active')) {
+        showVendors();
+      }
+    }
+  });
+}
+
+// Auto-backup every 24 hours
+function createAutoBackup() {
+  try {
+    const vendors = JSON.parse(localStorage.getItem('vendors_v2')) || [];
+    const categories = JSON.parse(localStorage.getItem('serviceCategories')) || [];
+    
+    const backupData = {
+      vendors: vendors,
+      categories: categories,
+      timestamp: Date.now(),
+      date: new Date().toLocaleString('en-IN'),
+      totalVendors: vendors.length,
+      totalCategories: categories.length,
+      version: '2.0'
+    };
+    
+    // Save multiple backup copies
+    localStorage.setItem('lokonex_auto_backup', JSON.stringify(backupData));
+    localStorage.setItem(`backup_${Date.now()}`, JSON.stringify(backupData));
+    
+    // Keep only last 5 backups
+    cleanupOldBackups();
+    
+    console.log('🔄 Auto-backup created:', vendors.length, 'vendors');
+    popup('✅ Backup Created', 'Auto-backup completed successfully!');
+  } catch (error) {
+    console.error('Backup failed:', error);
+  }
+}
+
+// Cleanup old backups
+function cleanupOldBackups() {
+  const backups = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key.startsWith('backup_')) {
+      backups.push({
+        key: key,
+        timestamp: parseInt(key.split('_')[1])
+      });
+    }
+  }
+  
+  // Sort by timestamp (newest first)
+  backups.sort((a, b) => b.timestamp - a.timestamp);
+  
+  // Remove old backups beyond 5
+  if (backups.length > 5) {
+    for (let i = 5; i < backups.length; i++) {
+      localStorage.removeItem(backups[i].key);
+    }
+  }
+}
+
+// Manual backup export
+function exportBackup() {
+  try {
+    const vendors = JSON.parse(localStorage.getItem('vendors_v2')) || [];
+    const categories = JSON.parse(localStorage.getItem('serviceCategories')) || [];
+    
+    const backupData = {
+      vendors: vendors,
+      categories: categories,
+      exportDate: new Date().toLocaleString('en-IN'),
+      totalVendors: vendors.length,
+      totalCategories: categories.length,
+      version: '2.0',
+      platform: 'Lokonex'
+    };
+    
+    const dataStr = JSON.stringify(backupData, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `lokonex_backup_${new Date().toISOString().split('T')[0]}_${vendors.length}_vendors.json`;
+    link.click();
+    
+    // Clean up
+    setTimeout(() => URL.revokeObjectURL(url), 100);
+    
+    popup('✅ Backup Exported', 
+      `Data exported successfully!\n\n` +
+      `📊 Vendors: ${vendors.length}\n` +
+      `📁 Categories: ${categories.length}\n\n` +
+      `File saved as: ${link.download}`);
+      
+  } catch (error) {
+    popup('❌ Export Failed', 'Error creating backup: ' + error.message);
+  }
+}
+
+// Manual backup import
+function importBackup() {
+  document.getElementById('backup-file').click();
+}
+
+// Handle backup file upload
+document.getElementById('backup-file').addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  
+  const reader = new FileReader();
+  reader.onload = function(event) {
+    try {
+      const backupData = JSON.parse(event.target.result);
+      
+      // Validate backup file
+      if (!backupData.vendors || !Array.isArray(backupData.vendors)) {
+        throw new Error('Invalid backup file: vendors data missing');
+      }
+      
+      if (!backupData.categories || !Array.isArray(backupData.categories)) {
+        throw new Error('Invalid backup file: categories data missing');
+      }
+      
+      // Show confirmation
+      const confirmed = confirm(
+        `🔁 RESTORE BACKUP?\n\n` +
+        `📊 Vendors: ${backupData.vendors.length}\n` +
+        `📁 Categories: ${backupData.categories.length}\n` +
+        `📅 Backup Date: ${backupData.exportDate || backupData.date}\n\n` +
+        `⚠️ This will REPLACE all current data!`
+      );
+      
+      if (!confirmed) return;
+      
+      // Restore data
+      localStorage.setItem('vendors_v2', JSON.stringify(backupData.vendors));
+      localStorage.setItem('serviceCategories', JSON.stringify(backupData.categories));
+      
+      // Update app state
+      vendors = backupData.vendors;
+      CATEGORIES = backupData.categories;
+      
+      // Save to Firebase and cache
+      saveV();
+      saveCategories();
+      updateCategoriesDisplay();
+      showVendors();
+      updateFreeSlots();
+      
+      // Create backup of current data before restore
+      createAutoBackup();
+      
+      popup('✅ Restore Complete', 
+        `Data restored successfully!\n\n` +
+        `📊 Vendors: ${vendors.length}\n` +
+        `📁 Categories: ${CATEGORIES.length}\n\n` +
+        `Page will reload...`);
+      
+      // Reload to ensure clean state
+      setTimeout(() => location.reload(), 2000);
+      
+    } catch (error) {
+      popup('❌ Import Failed', 'Error: ' + error.message);
+    }
+  };
+  
+  reader.onerror = function() {
+    popup('❌ File Error', 'Could not read backup file');
+  };
+  
+  reader.readAsText(file);
+  
+  // Reset file input
+  e.target.value = '';
+});
+
+// View backup info
+function viewBackupInfo() {
+  const autoBackup = JSON.parse(localStorage.getItem('lokonex_auto_backup') || '{}');
+  const vendors = JSON.parse(localStorage.getItem('vendors_v2') || '[]');
+  const categories = JSON.parse(localStorage.getItem('serviceCategories') || '[]');
+  
+  // Count backup files
+  let backupCount = 0;
+  for (let i = 0; i < localStorage.length; i++) {
+    if (localStorage.key(i).startsWith('backup_')) {
+      backupCount++;
+    }
+  }
+  
+  let info = `📊 CURRENT DATA STATUS:\n\n`;
+  info += `Vendors: ${vendors.length}\n`;
+  info += `Categories: ${categories.length}\n`;
+  info += `Free Slots: ${50 - vendors.filter(v => v.approved).length}\n\n`;
+  
+  info += `🔄 BACKUP INFORMATION:\n\n`;
+  
+  if (autoBackup.date) {
+    info += `Last Backup: ${autoBackup.date}\n`;
+    info += `Backup Vendors: ${autoBackup.totalVendors || 0}\n`;
+    info += `Backup Categories: ${autoBackup.totalCategories || 0}\n`;
+    info += `Total Backup Files: ${backupCount}\n\n`;
+  } else {
+    info += `No backups found\n\n`;
+  }
+  
+  info += `💡 TIPS:\n`;
+  info += `• Export before major changes\n`;
+  info += `• Auto-backup runs every 24 hours\n`;
+  info += `• Keep last 5 backups automatically`;
+  
+  popup('Backup Information', info);
+}
+
+// Initialize backup system
+function initBackupSystem() {
+  // Create first backup if none exists
+  if (!localStorage.getItem('lokonex_auto_backup')) {
+    createAutoBackup();
+  }
+  
+  // Setup daily auto-backup (24 hours)
+  setInterval(createAutoBackup, 24 * 60 * 60 * 1000);
+  
+  // Also backup on page unload
+  window.addEventListener('beforeunload', createAutoBackup);
+  
+  console.log('🛡️ Backup system initialized');
+}
+
+// Performance optimized functions
+function debounceSearch(func, delay = 300) {
+  return function(...args) {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => func.apply(this, args), delay);
+  };
+}
+
+const optimizedGlobalSearch = debounceSearch(function() {
+  const q = document.getElementById('global-search').value.toLowerCase().trim();
+  if (q.length < 2) {
+    showVendors();
+    return;
+  }
+  
+  const results = vendors.filter(v => v.approved && !isExpired(v.regDate) && 
+    (v.name.toLowerCase().includes(q) || 
+     v.service.toLowerCase().includes(q) || 
+     v.location.toLowerCase().includes(q) ||
+     v.description.toLowerCase().includes(q)));
+  
+  show('vendors'); 
+  showVendors(results);
+});
+
+const optimizedFilterVendors = debounceSearch(function() {
+  const q = document.getElementById('vendor-search').value.toLowerCase().trim();
+  if (q.length < 2) {
+    showVendors();
+    return;
+  }
+  
+  const results = vendors.filter(v => v.approved && !isExpired(v.regDate) && 
+    (v.name.toLowerCase().includes(q) || 
+     v.service.toLowerCase().includes(q) || 
+     v.location.toLowerCase().includes(q) ||
+     v.description.toLowerCase().includes(q)));
+  
+  showVendors(results);
+});
+
+// Lazy loading for images
+function lazyLoadImages() {
+  const images = document.querySelectorAll('.vendor-img[data-src]');
+  const imageObserver = new IntersectionObserver((entries, observer) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        const img = entry.target;
+        img.src = img.dataset.src;
+        img.onload = () => img.removeAttribute('data-src');
+        imageObserver.unobserve(img);
+      }
+    });
+  });
+
+  images.forEach(img => {
+    imageObserver.observe(img);
+  });
+}
+
+// Core application functions
+function updateDateTime() {
+  const now = new Date();
+  const options = { 
+    weekday: 'long', 
+    year: 'numeric', 
+    month: 'long', 
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  };
+  document.getElementById('datetime').textContent = now.toLocaleDateString('en-IN', options);
+}
+setInterval(updateDateTime, 1000);
+updateDateTime();
+
+function show(p) {
+  localStorage.setItem('currentPage', p);
+  document.querySelectorAll('.page').forEach(x => x.classList.remove('active'));
+  document.getElementById(p).classList.add('active');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  
+  if (p === 'vendors') showVendors();
+  if (p === 'admin') showDashboard();
+  if (p === 'register') document.getElementById('vendor-form').reset();
+}
+
+window.onload = () => {
+  updateCategoriesDisplay();
+  updateFreeSlots();
+  
+  // Initialize backup system
+  initBackupSystem();
+  
+  if (isCacheValid()) {
+    useLocalStorageFallback();
+    setTimeout(loadFromFirebase, 1000);
+  } else {
+    loadFromFirebase();
+  }
+  
+  const savedPage = localStorage.getItem('currentPage') || 'home';
+  show(savedPage);
+  
+  document.getElementById('vendor-form').reset();
+  setupFirebaseListeners();
+  
+  // Setup search event listeners
+  document.getElementById('global-search').addEventListener('input', optimizedGlobalSearch);
+  document.getElementById('vendor-search').addEventListener('input', optimizedFilterVendors);
+};
+
+function updateCategoriesDisplay() {
+  document.getElementById('categories').innerHTML = CATEGORIES.map(c => 
+    `<div class="category-btn" onclick="filterByCategory('${c}')">${c}</div>`
+  ).join('');
+  
+  const sel = document.getElementById('service-select');
+  sel.innerHTML = '<option value="">-- Select Service -- / సేవను ఎంచుకోండి --</option>' + 
+    CATEGORIES.map(c => `<option value="${c}">${c}</option>`).join('') + 
+    '<option value="Others">Others</option>';
+
+  updateAdminCategories();
+}
+
+function updateAdminCategories() {
+  const categoryList = document.getElementById('category-list');
+  if (categoryList) {
+    categoryList.innerHTML = CATEGORIES.map(c => 
+      `<div class="category-item">
+        ${c}
+        <button onclick="deleteCategory('${c}')">×</button>
+      </div>`
+    ).join('');
+  }
+}
+
+function addCategory() {
+  const newCategoryInput = document.getElementById('new-category');
+  const newCategory = newCategoryInput.value.trim();
+  
+  if (newCategory && !CATEGORIES.includes(newCategory)) {
+    CATEGORIES.push(newCategory);
+    saveCategories();
+    updateCategoriesDisplay();
+    newCategoryInput.value = '';
+    popup('Success', 'Category added successfully');
+  } else if (CATEGORIES.includes(newCategory)) {
+    popup('Error', 'Category already exists');
+  }
+}
+
+function deleteCategory(category) {
+  if (confirm(`Are you sure you want to delete "${category}" category?`)) {
+    CATEGORIES = CATEGORIES.filter(c => c !== category);
+    saveCategories();
+    updateCategoriesDisplay();
+    popup('Success', 'Category deleted successfully');
+  }
+}
+
+function toggleCustom(sel, id) {
+  document.getElementById(id).style.display = sel.value === 'Others' ? 'block' : 'none';
+}
+
+function updateFreeSlots() {
+  const free = 1 - vendors.filter(v => v.approved).length;
+  document.getElementById('free-slots').textContent = Math.max(0, free);
+}
+
+function popup(t, m) {
+  document.getElementById('popup-title').innerText = t;
+  document.getElementById('popup-msg').innerText = m;
+  document.getElementById('popup').classList.add('show');
+}
+
+function closePopup() { 
+  document.getElementById('popup').classList.remove('show'); 
+}
+
+function isExpired(d) {
+  const [dd,mm,yy] = d.split('/');
+  const reg = new Date(yy, mm-1, dd);
+  const exp = new Date(reg); exp.setFullYear(reg.getFullYear() + 1);
+  return new Date() > exp;
+}
+
+function contactVendor(action, mobile) {
+  contactAction = {action, mobile};
+  document.getElementById('contact-popup').classList.add('show');
+}
+
+function proceedToContact() {
+  if (contactAction) {
+    if (contactAction.action === 'call') {
+      location.href = `tel:${contactAction.mobile}`;
+    } else if (contactAction.action === 'whatsapp') {
+      window.open(`https://wa.me/91${contactAction.mobile}`);
+    }
+  }
+  closeContactPopup();
+}
+
+function closeContactPopup() {
+  document.getElementById('contact-popup').classList.remove('show');
+  contactAction = null;
+}
+
+function showVendors(list = vendors.filter(v => v.approved && !isExpired(v.regDate))) {
+  const grid = document.getElementById('vendor-grid');
+  
+  if (list.length === 0) {
+    grid.innerHTML = '<p style="text-align:center;grid-column:1/-1">No active vendors!</p>';
+    return;
+  }
+  
+  const fragment = document.createDocumentFragment();
+  
+  list.forEach(v => {
+    const vendorDiv = document.createElement('div');
+    vendorDiv.className = 'vendor-box';
+    vendorDiv.setAttribute('data-id', v.id);
+    vendorDiv.innerHTML = `
+      <div class="vendor-header">
+        <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNzAiIGhlaWdodD0iNzAiIHZpZXdCb3g9IjAgMCA3MCA3MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjcwIiBoZWlnaHQ9IjcwIiByeD0iMzUiIGZpbGw9IiMyMDNhNDMiLz4KPC9zdmc+" 
+             data-src="${v.photo && v.photo.startsWith('data:') ? v.photo : 'https://via.placeholder.com/150/203a43/ffd700?text=Photo'}" 
+             alt="${v.name}" class="vendor-img"
+             onerror="this.src='https://via.placeholder.com/150/203a43/ffd700?text=Photo'">
+        <div class="vendor-info">
+          <h3>${v.name}</h3>
+          <p style="color:#ffd700;font-weight:500">${v.service}</p>
+        </div>
+      </div>
+      <div class="vendor-details">
+        <div class="vendor-detail">
+          <i class="fas fa-phone"></i>
+          <span>${v.mobile}</span>
+        </div>
+        <div class="vendor-detail">
+          <i class="fas fa-map-marker-alt"></i>
+          <span>${v.location}</span>
+        </div>
+        <div class="vendor-detail">
+          <i class="fas fa-briefcase"></i>
+          <span>${v.experience} years experience</span>
+        </div>
+        <div class="vendor-detail">
+          <i class="fas fa-info-circle"></i>
+          <span>${v.description}</span>
+        </div>
+      </div>
+      <div class="vendor-actions">
+        <button class="glow-btn call-btn" onclick="contactVendor('call', '${v.mobile}')">Call</button>
+        <button class="glow-btn whatsapp-btn" onclick="contactVendor('whatsapp', '${v.mobile}')">WhatsApp</button>
+        <button class="edit-btn" onclick="showEditForm(${v.id})">
+          <i class="fas fa-edit"></i> Edit
+        </button>
+      </div>
+    `;
+    fragment.appendChild(vendorDiv);
+  });
+  
+  grid.innerHTML = '';
+  grid.appendChild(fragment);
+  
+  setTimeout(lazyLoadImages, 100);
+}
+
+function updateSelectedCount() {
+  const selected = document.querySelectorAll('.vendor-check:checked').length;
+  document.getElementById('selected-count').textContent = `${selected} selected`;
+  
+  document.querySelectorAll('#admin-body tr').forEach(row => {
+    const checkbox = row.querySelector('.vendor-check');
+    if (checkbox && checkbox.checked) {
+      row.classList.add('selected-row');
+    } else {
+      row.classList.remove('selected-row');
+    }
+  });
+}
+
+function showDashboard() {
+  document.getElementById('total-v').textContent = vendors.length;
+  const tbody = document.getElementById('admin-body');
+  tbody.innerHTML = '';
+  vendors.forEach(v => {
+    const exp = isExpired(v.regDate);
+    const status = exp ? '<span class="expired">Expired</span>' : (v.approved ? 'LIVE' : 'Pending');
+    tbody.innerHTML += `<tr>
+      <td><input type="checkbox" class="vendor-check" data-id="${v.id}" onchange="updateSelectedCount()"></td>
+      <td>${v.name}</td>
+      <td>${v.mobile}</td>
+      <td>${v.service}</td>
+      <td>${v.regDateTime || v.regDate}</td>
+      <td>${status}</td>
+      <td>
+        ${!v.approved ? `<button class="glow-btn" style="background:#25d366" onclick="approve(${v.id})">Approve</button>` : ''}
+      </td>
+    </tr>`;
+  });
+  
+  updateSelectedCount();
+}
+
+function toggleAll(source) {
+  document.querySelectorAll('.vendor-check').forEach(cb => {
+    cb.checked = source.checked;
+    cb.dispatchEvent(new Event('change'));
+  });
+  updateSelectedCount();
+}
+
+function deleteSelected() {
+  const selected = Array.from(document.querySelectorAll('.vendor-check:checked')).map(cb => parseInt(cb.dataset.id));
+  if (selected.length === 0) {
+    popup('Error', 'Please select at least one vendor to delete');
+    return;
+  }
+  
+  if (confirm(`Delete ${selected.length} vendor(s) forever?`)) {
+    vendors = vendors.filter(v => !selected.includes(v.id));
+    saveV();
+    popup('Deleted', `${selected.length} vendor(s) removed successfully`);
+    showDashboard(); 
+    showVendors();
+  }
+}
+
+function updateSelected() {
+  const selected = Array.from(document.querySelectorAll('.vendor-check:checked')).map(cb => parseInt(cb.dataset.id));
+  if (selected.length === 0) {
+    popup('Error', 'Please select at least one vendor to update');
+    return;
+  }
+  
+  if (selected.length > 1) {
+    popup('Error', 'Please select only one vendor to update');
+    return;
+  }
+  
+  const vendorId = selected[0];
+  const vendor = vendors.find(v => v.id === vendorId);
+  if (!vendor) return;
+  
+  const updateFormContainer = document.getElementById('update-form-container');
+  updateFormContainer.style.display = 'block';
+  
+  updateFormContainer.innerHTML = `
+    <div class="update-form">
+      <h4>Update Vendor Details</h4>
+      <input type="text" id="update-name" value="${vendor.name}" placeholder="Name">
+      <input type="tel" id="update-mobile" value="${vendor.mobile}" placeholder="Mobile">
+      <select id="update-service">
+        ${CATEGORIES.map(c => `<option value="${c}" ${c === vendor.service ? 'selected' : ''}>${c}</option>`).join('')}
+        <option value="Others" ${!CATEGORIES.includes(vendor.service) ? 'selected' : ''}>Others</option>
+      </select>
+      <input type="text" id="update-custom-service" value="${!CATEGORIES.includes(vendor.service) ? vendor.service : ''}" placeholder="Custom Service" style="${CATEGORIES.includes(vendor.service) ? 'display:none' : ''}">
+      <input type="text" id="update-location" value="${vendor.location}" placeholder="Location">
+      <input type="number" id="update-experience" value="${vendor.experience}" placeholder="Experience">
+      <textarea id="update-description" placeholder="Description">${vendor.description}</textarea>
+      <div style="display:flex;gap:0.5rem;margin-top:1rem">
+        <button class="glow-btn" onclick="saveUpdate(${vendorId})" style="background:#2ecc71">Save Changes</button>
+        <button class="glow-btn" onclick="cancelUpdate()" style="background:#95a5a6">Cancel</button>
+      </div>
+    </div>
+  `;
+  
+  document.getElementById('update-service').addEventListener('change', function() {
+    document.getElementById('update-custom-service').style.display = 
+      this.value === 'Others' ? 'block' : 'none';
+  });
+  
+  updateFormContainer.scrollIntoView({ behavior: 'smooth' });
+}
+
+function saveUpdate(vendorId) {
+  const vendorIndex = vendors.findIndex(v => v.id === vendorId);
+  if (vendorIndex === -1) return;
+  
+  const serviceValue = document.getElementById('update-service').value;
+  
+  vendors[vendorIndex].name = document.getElementById('update-name').value.trim();
+  vendors[vendorIndex].mobile = document.getElementById('update-mobile').value.trim();
+  vendors[vendorIndex].service = serviceValue === 'Others' 
+    ? document.getElementById('update-custom-service').value.trim() 
+    : serviceValue;
+  vendors[vendorIndex].location = document.getElementById('update-location').value.trim();
+  vendors[vendorIndex].experience = document.getElementById('update-experience').value;
+  vendors[vendorIndex].description = document.getElementById('update-description').value.trim();
+  
+  saveV();
+  popup('Success', 'Vendor details updated successfully');
+  cancelUpdate();
+  showDashboard();
+}
+
+function cancelUpdate() {
+  document.getElementById('update-form-container').style.display = 'none';
+  document.getElementById('update-form-container').innerHTML = '';
+}
+
+function approve(id) {
+  vendors = vendors.map(v => v.id === id ? {...v, approved: true} : v);
+  saveV();
+  popup('Approved!', 'Now LIVE');
+  showDashboard(); 
+  showVendors();
+}
+
+function adminLogin() {
+  const user = document.getElementById('admin-user').value.trim();
+  const pass = document.getElementById('admin-pass').value;
+  if (user === 'svr' && pass === '2109') {
+    document.getElementById('login-box').style.display = 'none';
+    document.getElementById('dashboard').style.display = 'block';
+    showDashboard();
+  } else {
+    popup('Error', 'Invalid username or password');
+  }
+}
+
+function adminLogout() {
+  document.getElementById('login-box').style.display = 'block';
+  document.getElementById('dashboard').style.display = 'none';
+  document.getElementById('admin-user').value = '';
+  document.getElementById('admin-pass').value = '';
+  cancelUpdate();
+}
+
+function filterByCategory(c) {
+  show('vendors');
+  let filtered = vendors.filter(v => v.approved && !isExpired(v.regDate));
+  if (c !== 'Others') {
+    filtered = filtered.filter(v => v.service === c);
+  } else {
+    filtered = filtered.filter(v => !CATEGORIES.includes(v.service));
+  }
+  showVendors(filtered);
+}
+
+// PWA and Share functionality
+function shareApp() {
+  if (navigator.share) {
+    navigator.share({
+      title: 'Lokonex - Local Services Connect',
+      text: 'Discover and connect with verified local service providers in your area',
+      url: window.location.href
+    })
+    .then(() => console.log('Successful share'))
+    .catch((error) => console.log('Error sharing:', error));
+  } else {
+    const shareUrl = window.location.href;
+    navigator.clipboard.writeText(shareUrl).then(() => {
+      popup('Success', 'App link copied to clipboard!');
+    }).catch(() => {
+      popup('Share App', 'Share this link: ' + shareUrl);
+    });
+  }
+}
+
+// Feature card clicks
+document.querySelectorAll('.feature-card').forEach(card => {
+  card.style.cursor = 'pointer';
+  card.onclick = () => {
+    const title = card.querySelector('h3').textContent;
+    if (title.includes('Find Vendors')) show('vendors');
+    else if (title.includes('Register')) show('register');
+  };
+});
+
+// Install App functionality
+let deferredPrompt;
+const installBtn = document.getElementById('install-btn');
+const toast = document.getElementById('toast');
+
+if (window.matchMedia('(display-mode: standalone)').matches) {
+  installBtn.style.display = 'none';
+}
+
+if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+  installBtn.style.display = 'flex';
+}
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  installBtn.style.display = 'flex';
+});
+
+installBtn.addEventListener('click', async () => {
+  if (deferredPrompt) {
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      showToast();
+      installBtn.style.display = 'none';
+    }
+    deferredPrompt = null;
+  } else {
+    showToast("Already Installed or not supported.");
+  }
+});
+
+function showToast(msg="App Installed Successfully!") {
+  toast.textContent = msg;
+  toast.style.visibility = "visible";
+  toast.style.opacity = "1";
+  toast.style.bottom = "100px";
+  setTimeout(()=>{
+    toast.style.opacity = "0";
+    toast.style.bottom = "80px";
+    toast.style.visibility = "hidden";
+  },3000);
+}
+
+// Service Worker Registration
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('./sw.js')
+      .then(reg => console.log('Service Worker registered:', reg.scope))
+      .catch(err => console.log('Service Worker failed:', err));
+  });
+}
+</script>
+
+<!-- Install App button -->
+<button id="install-btn"
+  style="position:fixed;top:65px;right:15px;z-index:999;
+         background:linear-gradient(45deg,#ffd700,#ffb400);
+         color:#000;border:none;border-radius:80px;
+         padding:1.0rem 1rem;font-weight:300;
+         box-shadow:0 0 5px rgba(255,215,0,0.6);
+         font-size:0.7rem;cursor:pointer;display:flex;
+         align-items:center;gap:0.4rem;">
+  <i class="fas fa-download"></i> Install App
+</button>
+
+<!-- Toast popup -->
+<div id="toast"
+  style="visibility:hidden;min-width:240px;
+         background:rgba(0,0,0,0.85);color:#fff;text-align:center;
+         border-radius:50px;padding:0.8rem 1.2rem;
+         position:fixed;z-index:9999;left:50%;bottom:80px;
+         transform:translateX(-50%);font-size:0.9rem;
+         opacity:0;transition:opacity 0.4s,bottom 0.4s;">
+  App Installed Successfully!
+</div>
+
+</body>
+</html>
