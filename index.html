@@ -908,6 +908,7 @@ html {
 
 <script>
 // Firebase configuration
+
 const firebaseConfig = {
   apiKey: "AIzaSyB8WfD7DneS5nQXOLxB6c_D-n9aFgttr_w",
   authDomain: "local-market2025.firebaseapp.com",
@@ -975,13 +976,151 @@ function showWarning(message, duration = 5000) {
 firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
 
+// ==================== FIREBASE AUTHENTICATION ====================
+const auth = firebase.auth();
+
+// User State Listener
+auth.onAuthStateChanged((user) => {
+    if (user) {
+        console.log('User logged in:', user.email);
+        // User is signed in - update UI
+        updateUIForLoggedInUser(user);
+    } else {
+        console.log('User logged out');
+        // User is signed out - update UI
+        updateUIForLoggedOutUser();
+    }
+});
+
+// Vendor Registration with Authentication
+async function registerVendorWithAuth(vendorData, email, password) {
+    try {
+        showInfo('Creating vendor account...', 0);
+        
+        // Create user account
+        const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+        const user = userCredential.user;
+        
+        // Send email verification
+        await user.sendEmailVerification();
+        
+        // Save vendor data with user UID
+        const vendorWithAuth = {
+            ...vendorData,
+            userId: user.uid,
+            email: email,
+            emailVerified: false,
+            approved: false,
+            paid: false,
+            regDate: new Date().toLocaleDateString('en-IN'),
+            regDateTime: new Date().toLocaleString('en-IN')
+        };
+        
+        // Save to database
+        const vendorId = 'vendor_' + Date.now();
+        await firebase.database().ref('vendors/' + vendorId).set(vendorWithAuth);
+        
+        showSuccess('🎉 Vendor registered successfully! Please check your email for verification.');
+        document.getElementById('vendor-form').reset();
+        
+    } catch (error) {
+        showError('Registration failed: ' + error.message);
+    }
+}
+
+// Update Vendor Registration Form
+document.getElementById('vendor-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const f = this.elements;
+    
+    // Get form data
+    const vendorData = {
+        name: f.name.value.trim(),
+        mobile: f.mobile.value.trim(),
+        service: f.service.value === 'Others' ? f.custom_service.value.trim() : f.service.value,
+        location: f.area.value.trim(),
+        experience: f.exp.value,
+        description: f.desc.value.trim()
+    };
+    
+    // Generate email and password
+    const email = `${vendorData.mobile}@lokonex.com`;
+    const password = 'lokonex123'; // Simple default password
+    
+    registerVendorWithAuth(vendorData, email, password);
+});
+
+// Admin Login with Authentication
+async function adminLogin() {
+    const email = document.getElementById('admin-user').value.trim();
+    const password = document.getElementById('admin-pass').value;
+    
+    try {
+        const userCredential = await auth.signInWithEmailAndPassword(email, password);
+        const user = userCredential.user;
+        
+        // Check if admin email
+        if (email === 'admin@lokonex.com' || email === 'svr@lokonex.com') {
+            document.getElementById('login-box').style.display = 'none';
+            document.getElementById('dashboard').style.display = 'block';
+            showDashboard();
+            showSuccess('Admin login successful!');
+        } else {
+            await auth.signOut();
+            showError('Admin access only');
+        }
+    } catch (error) {
+        showError('Login failed: ' + error.message);
+    }
+}
+
+// Logout Function
+function logout() {
+    auth.signOut().then(() => {
+        showSuccess('Logged out successfully');
+        show('home');
+    });
+}
+
+// UI Update Functions
+function updateUIForLoggedInUser(user) {
+    // Show user info in header
+    const header = document.querySelector('header');
+    const existingUserInfo = header.querySelector('.user-info');
+    if (existingUserInfo) {
+        existingUserInfo.remove();
+    }
+    
+    const userInfo = document.createElement('div');
+    userInfo.className = 'user-info';
+    userInfo.innerHTML = `
+        <div style="display:flex; align-items:center; gap:10px; font-size:0.8rem;">
+            <i class="fas fa-user"></i>
+            <span>${user.email}</span>
+            <button onclick="logout()" class="glow-btn" style="background:#e74c3c; padding:4px 8px; font-size:0.6rem;">
+                Logout
+            </button>
+        </div>
+    `;
+    header.appendChild(userInfo);
+}
+
+function updateUIForLoggedOutUser() {
+    // Hide user info
+    const userInfo = document.querySelector('.user-info');
+    if (userInfo) {
+        userInfo.remove();
+    }
+}
+
+// ==================== AUTHENTICATION END ====================
+
 // Cache management
 const CACHE_KEYS = {
   VENDORS: 'vendors_v3',
   CATEGORIES: 'categories_v2',
   TIMESTAMP: 'data_timestamp'
 };
-
 let CATEGORIES = JSON.parse(localStorage.getItem(CACHE_KEYS.CATEGORIES)) || [
   "Electricians", "Plumbers", "Carpenters", "Mechanics", "Painters", 
   "Teachers / Tutors", "Doctors / Clinics", "Lawyers / Legal Advisors", 
