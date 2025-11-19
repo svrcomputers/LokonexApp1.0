@@ -10,7 +10,7 @@
 <!-- Cache Control -->
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
 <meta http-equiv="Pragma" content="no-cache" />
-<meta http-equiv="Expires" content="0" /> 
+<meta http-equiv="Expires" content="0" />
 
 <!-- Auto Cache Busting -->
 <script>
@@ -1950,25 +1950,27 @@ function approve(id) {
   showVendors();
 }
 
+let adminSession = false; // Works on any device after login
 function adminLogin() {
-  const user = document.getElementById('admin-user').value.trim();
-  const pass = document.getElementById('admin-pass').value;
-  if (user === 'svr' && pass === '2109') {
-    document.getElementById('login-box').style.display = 'none';
-    document.getElementById('dashboard').style.display = 'block';
-    showDashboard();
-  } else {
-    popup('Error', 'Invalid username or password');
-  }
+const user = document.getElementById('admin-user').value.trim();
+const pass = document.getElementById('admin-pass').value.trim();
+if (user === "svr" && pass === "2109") { // use your actual credentials
+adminSession = true; // IMPORTANT: device-independent
+document.getElementById('login-box').style.display = "none";
+document.getElementById('dashboard').style.display = "block";
+popup('Login Success', 'Welcome Admin!');
+} else {
+popup('Login Failed', 'Invalid username or password.');
+}
 }
 
 function adminLogout() {
-  document.getElementById('login-box').style.display = 'block';
-  document.getElementById('dashboard').style.display = 'none';
-  document.getElementById('admin-user').value = '';
-  document.getElementById('admin-pass').value = '';
-  cancelUpdate();
+adminSession = false; // Logout session
+document.getElementById('dashboard').style.display = "none";
+document.getElementById('login-box').style.display = "block";
+popup('Logged Out', 'You have been logged out successfully.');
 }
+
 
 function filterByCategory(c) {
   show('vendors');
