@@ -1054,7 +1054,16 @@ function show(p) {
   document.getElementById(p).classList.add('active');
   window.scrollTo({ top: 0, behavior: 'smooth' });
   
-  if (p === 'vendors') showVendors();
+  console.log("📄 Page changed to:", p);
+  
+  if (p === 'vendors') {
+    console.log("🎯 Calling showVendors...");
+    // Force call after page is visible
+    setTimeout(() => {
+      console.log("⏰ Timeout executed - calling showVendors");
+      showVendors();
+    }, 300);
+  }
   if (p === 'admin') showDashboard();
   if (p === 'register') document.getElementById('vendor-form').reset();
 }
