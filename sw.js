@@ -1,6 +1,6 @@
 // ---------------------- Service Worker ----------------------
 
-// Always unique cache to force auto-update
+// Unique cache to force auto-update
 const CACHE_NAME = "lokonex-v-" + Date.now();
 
 const urlsToCache = [
@@ -24,9 +24,7 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
       Promise.all(
-        keys
-          .filter((key) => key !== CACHE_NAME)
-          .map((key) => caches.delete(key))
+        keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
       )
     )
   );
@@ -36,17 +34,22 @@ self.addEventListener("activate", (event) => {
 // FETCH — network-first for HTML, network-first with cache fallback for other requests
 self.addEventListener("fetch", (event) => {
   if (event.request.mode === "navigate") {
-    // For page navigations (index.html)
+    // Always fetch latest index.html
     event.respondWith(
-      fetch(event.request)
+      fetch(event.request, { cache: "no-store" })
         .then((response) => response)
         .catch(() => caches.match("./index.html"))
     );
   } else {
-    // Other requests: network-first
+    // Other requests: network-first, fallback to cache
     event.respondWith(
       fetch(event.request)
-        .then((response) => response)
+        .then((response) => {
+          if (!response || response.status !== 200) {
+            return caches.match(event.request);
+          }
+          return response;
+        })
         .catch(() => caches.match(event.request))
     );
   }
