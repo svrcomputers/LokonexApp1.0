@@ -943,6 +943,16 @@ function setupRealtimeSync() {
 // ==================== UPDATED VENDOR SAVE FUNCTION ====================
 
 function saveVendor(photoData, f, isFree) {
+  // Use simple SVG as default photo
+  const defaultPhoto = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTUwIiBoZWlnaHQ9IjE1MCIgdmlld0JveD0iMCAwIDE1MCAxNTAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjE1MCIgaGVpZ2h0PSIxNTAiIGZpbGw9IiMyMDNhNDMiLz48Y2lyY2xlIGN4PSI3NSIgY3k9IjYwIiByPSIyMCIgZmlsbD0iI2ZmZDcwMCIvPjxwYXRoIGQ9Ik0zMCAxMjBWMTEwQzMwIDk1IDQ1IDg1IDc1IDg1QzEwNSA4NSAxMjAgOTUgMTIwIDExMFYxMjAiIHN0cm9rZT0iI2ZmZDcwMCIgc3Ryb2tlLXdpZHRoPSIyIi8+PC9zdmc+';
+
+  let finalPhoto = defaultPhoto;
+  
+  // Check if it's a valid data URL
+  if (photoData && photoData.startsWith('data:image/')) {
+    finalPhoto = photoData;
+  }
+
   const vendor = {
     id: Date.now(),
     name: f.name.value.trim(),
@@ -950,21 +960,19 @@ function saveVendor(photoData, f, isFree) {
     service: f.service.value === 'Others' ? f.custom_service.value.trim() : f.service.value,
     location: f.area.value.trim(),
     experience: f.exp.value,
-    photo: photoData,
+    photo: finalPhoto, // Use SVG photo
     description: f.desc.value.trim(),
     paid: !isFree,
     approved: isFree,
     regDate: new Date().toLocaleDateString('en-IN'),
     regDateTime: new Date().toLocaleString('en-IN'),
-    deviceId: getDeviceId(), // Track which device created this vendor
+    deviceId: getDeviceId(),
     timestamp: Date.now()
   };
 
-  // Save to local storage first
   vendors.push(vendor);
   localStorage.setItem('vendors_v2', JSON.stringify(vendors));
   
-  // Then sync to Firebase
   saveVendorsToFirebase().then(() => {
     console.log("✅ Vendor saved and synced to all devices");
   });
@@ -1139,12 +1147,13 @@ function showVendors(list = vendors.filter(v => v.approved && !isExpired(v.regDa
     return;
   }
   
+  const defaultPhoto = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTUwIiBoZWlnaHQ9IjE1MCIgdmlld0JveD0iMCAwIDE1MCAxNTAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjE1MCIgaGVpZ2h0PSIxNTAiIGZpbGw9IiMyMDNhNDMiLz48Y2lyY2xlIGN4PSI3NSIgY3k9IjYwIiByPSIyMCIgZmlsbD0iI2ZmZDcwMCIvPjxwYXRoIGQ9Ik0zMCAxMjBWMTEwQzMwIDk1IDQ1IDg1IDc1IDg1QzEwNSA4NSAxMjAgOTUgMTIwIDExMFYxMjAiIHN0cm9rZT0iI2ZmZDcwMCIgc3Ryb2tlLXdpZHRoPSIyIi8+PC9zdmc+';
+  
   grid.innerHTML = list.map(v => `
     <div class="vendor-box" data-id="${v.id}">
       <div class="vendor-header">
-        <img src="${v.photo && v.photo.startsWith('data:') ? v.photo : 'https://via.placeholder.com/150/203a43/ffd700?text=Photo'}" 
-             alt="${v.name}" class="vendor-img"
-             onerror="this.src='https://via.placeholder.com/150/203a43/ffd700?text=Photo'">
+        <img src="${v.photo || defaultPhoto}" 
+             alt="${v.name}" class="vendor-img">
         <div class="vendor-info">
           <h3>${v.name}</h3>
           <p style="color:#ffd700;font-weight:500">${v.service}</p>
