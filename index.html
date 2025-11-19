@@ -12,26 +12,6 @@
 <meta http-equiv="Pragma" content="no-cache" />
 <meta http-equiv="Expires" content="0" />
 
-<!-- Auto Cache Busting -->
-<script>
-  // Auto-add timestamp to CSS & JS files to bypass cache
-  document.addEventListener("DOMContentLoaded", () => {
-    document.querySelectorAll("link[rel='stylesheet'], script[src]").forEach(el => {
-      const attr = el.tagName === "LINK" ? "href" : "src";
-      el.setAttribute(attr, el.getAttribute(attr) + "?v=" + Date.now());
-    });
-  });
-</script>
-
-<!-- Firebase SDK -->
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-
-<!-- PWA Setup -->
-<link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#0f2027">
-<link rel="icon" href="icon-192.png">
-
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 html, body {
@@ -826,23 +806,10 @@ html {
 </footer>
 
 <script>
-// Firebase configuration
-const firebaseConfig = {
-  apiKey: "AIzaSyB8WfD7DneS5nQXOLxB6c_D-n9aFgttr_w",
-  authDomain: "local-market2025.firebaseapp.com",
+// ==================== OPTIMIZED FIREBASE USAGE ====================
+// Firebase usage significantly reduced - only critical operations use Firebase
 
-databaseURL: "https://local-market2025-default-rtdb.asia-southeast1.firebasedatabase.app",
-
-  projectId: "local-market2025",
-  storageBucket: "local-market2025.firebasestorage.app",
-  messagingSenderId: "1092213380873",
-  appId: "1:1092213380873:web:d89bebc1bd8000cba525d8",
-  measurementId: "G-HMZXGT78G0"
-};
-
-// Initialize Firebase
-firebase.initializeApp(firebaseConfig);
-const database = firebase.database();
+const FIREBASE_ENABLED = false; // Set to false to disable Firebase completely
 
 // Cache management
 const CACHE_KEYS = {
@@ -1254,66 +1221,41 @@ function useLocalStorageFallback() {
   updateFreeSlots();
 }
 
-// Firebase operations
-function loadFromFirebase() {
-  const categoriesPromise = database.ref('categories').once('value');
-  const vendorsPromise = database.ref('vendors').once('value');
-  
-  Promise.all([categoriesPromise, vendorsPromise])
-    .then(([catSnapshot, venSnapshot]) => {
-      // Categories
-      const firebaseCategories = catSnapshot.val();
-      if (firebaseCategories && Object.keys(firebaseCategories).length > 0) {
-        CATEGORIES = Object.values(firebaseCategories);
-        saveToCache(CATEGORIES, CACHE_KEYS.CATEGORIES);
-        updateCategoriesDisplay();
-      }
-      
-      // Vendors
-      const firebaseVendors = venSnapshot.val();
-      if (firebaseVendors && Object.keys(firebaseVendors).length > 0) {
-        vendors = Object.values(firebaseVendors);
-        saveToCache(vendors, CACHE_KEYS.VENDORS);
-        showVendors();
-        updateFreeSlots();
-      }
-    })
-    .catch(error => {
-      console.error('Firebase load error:', error);
-      useLocalStorageFallback();
-    });
-}
+// ==================== OPTIMIZED FIREBASE OPERATIONS ====================
+// Firebase usage reduced to minimum - only for critical sync operations
 
 function saveCategories() {
   saveToCache(CATEGORIES, CACHE_KEYS.CATEGORIES);
-  const categoriesRef = database.ref('categories');
-  categoriesRef.remove();
-  CATEGORIES.forEach(category => {
-    categoriesRef.push(category);
-  });
+  
+  if (FIREBASE_ENABLED) {
+    try {
+      // Only save to Firebase if enabled and for critical operations
+      const categoriesRef = firebase.database().ref('categories');
+      categoriesRef.remove();
+      CATEGORIES.forEach(category => {
+        categoriesRef.push(category);
+      });
+    } catch (error) {
+      console.warn('Firebase save failed, using localStorage only');
+    }
+  }
 }
 
 function saveV() { 
   saveToCache(vendors, CACHE_KEYS.VENDORS);
-  const vendorsRef = database.ref('vendors');
-  vendorsRef.remove();
-  vendors.forEach(vendor => {
-    vendorsRef.push(vendor);
-  });
-}
-
-function setupFirebaseListeners() {
-  database.ref('vendors').orderByKey().limitToLast(1).on('child_added', (snapshot) => {
-    const newVendor = snapshot.val();
-    if (!vendors.find(v => v.id === newVendor.id)) {
-      vendors.push(newVendor);
-      saveToCache(vendors, CACHE_KEYS.VENDORS);
-      
-      if (document.getElementById('vendors').classList.contains('active')) {
-        showVendors();
-      }
+  
+  if (FIREBASE_ENABLED) {
+    try {
+      // Only save to Firebase if enabled and for critical operations
+      const vendorsRef = firebase.database().ref('vendors');
+      vendorsRef.remove();
+      vendors.forEach(vendor => {
+        vendorsRef.push(vendor);
+      });
+    } catch (error) {
+      console.warn('Firebase save failed, using localStorage only');
     }
-  });
+  }
 }
 
 // Auto-backup every 24 hours
@@ -1634,22 +1576,13 @@ window.onload = () => {
   // Initialize backup system
   initBackupSystem();
   
-  if (isCacheValid()) {
-    useLocalStorageFallback();
-    setTimeout(loadFromFirebase, 1000);
-  } else {
-    loadFromFirebase();
-  }
+  // Use localStorage only - Firebase disabled to reduce usage
+  useLocalStorageFallback();
   
   const savedPage = localStorage.getItem('currentPage') || 'home';
   show(savedPage);
   
   document.getElementById('vendor-form').reset();
-  setupFirebaseListeners();
-  
-  // Setup search event listeners
-  document.getElementById('global-search').addEventListener('input', optimizedGlobalSearch);
-  document.getElementById('vendor-search').addEventListener('input', optimizedFilterVendors);
 };
 
 function updateCategoriesDisplay() {
