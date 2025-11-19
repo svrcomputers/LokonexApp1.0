@@ -1,4 +1,6 @@
-// Always unique cache to force auto update
+// ---------------------- Service Worker ----------------------
+
+// Always unique cache to force auto-update
 const CACHE_NAME = "lokonex-v-" + Date.now();
 
 const urlsToCache = [
@@ -9,31 +11,50 @@ const urlsToCache = [
   "./icon-512.png",
 ];
 
-// INSTALL — cache new files immediately
+// INSTALL — cache files immediately
 self.addEventListener("install", (event) => {
-  self.skipWaiting();
+  self.skipWaiting(); // activate SW immediately
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(urlsToCache))
   );
 });
 
-// ACTIVATE — delete old cache completely
+// ACTIVATE — delete old caches
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
       Promise.all(
-        keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
+        keys
+          .filter((key) => key !== CACHE_NAME)
+          .map((key) => caches.delete(key))
       )
     )
   );
-  self.clients.claim();
+  self.clients.claim(); // take control immediately
 });
 
-// FETCH — always try live network first (real-time mode)
+// FETCH — network-first for HTML, network-first with cache fallback for other requests
 self.addEventListener("fetch", (event) => {
-  event.respondWith(
-    fetch(event.request)
-      .then((response) => response)
-      .catch(() => caches.match(event.request))
-  );
+  if (event.request.mode === "navigate") {
+    // For page navigations (index.html)
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => response)
+        .catch(() => caches.match("./index.html"))
+    );
+  } else {
+    // Other requests: network-first
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => response)
+        .catch(() => caches.match(event.request))
+    );
+  }
+});
+
+// Listen for skipWaiting message from page
+self.addEventListener("message", (event) => {
+  if (event.data.action === "skipWaiting") {
+    self.skipWaiting();
+  }
 });
