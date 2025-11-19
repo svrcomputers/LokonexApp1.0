@@ -1057,12 +1057,13 @@ function show(p) {
   console.log("📄 Page changed to:", p);
   
   if (p === 'vendors') {
-    console.log("🎯 Calling showVendors...");
-    // Force call after page is visible
+    console.log("🎯 Vendors page - calling showVendors");
+    // Wait for page to be fully visible
     setTimeout(() => {
-      console.log("⏰ Timeout executed - calling showVendors");
-      showVendors();
-    }, 300);
+      if (typeof showVendors === 'function') {
+        showVendors();
+      }
+    }, 200);
   }
   if (p === 'admin') showDashboard();
   if (p === 'register') document.getElementById('vendor-form').reset();
