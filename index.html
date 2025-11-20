@@ -1408,6 +1408,42 @@ function deleteSelected() {
   }
 }
 
+function approve(id) {
+  console.log("✅ APPROVE FUNCTION CALLED - Vendor ID:", id);
+  
+  // Find the vendor
+  const vendor = vendors.find(v => v.id === id);
+  if (!vendor) {
+    console.log("❌ Vendor not found with ID:", id);
+    popup('Error', 'Vendor not found');
+    return;
+  }
+  
+  console.log("Approving vendor:", vendor.name);
+  
+  // Update vendor approval status
+  vendors = vendors.map(v => 
+    v.id === id ? {...v, approved: true} : v
+  );
+  
+  console.log("✅ Vendor approved. Updated vendors:", vendors.length);
+  
+  // Save to localStorage and Firebase
+  saveV();
+  
+  // Sync with Firebase
+  saveVendorsToFirebaseOptimized().then(() => {
+    console.log("🔥 Vendor approval synced to Firebase");
+    popup('Approved!', `${vendor.name} is now LIVE and visible to customers`);
+  });
+  
+  // Refresh the admin dashboard
+  showDashboard();
+  
+  console.log("🔄 UI refreshed after approval");
+}
+
+  
 function addCategory() {
   const newCategoryInput = document.getElementById('new-category');
   const newCategory = newCategoryInput.value.trim();
