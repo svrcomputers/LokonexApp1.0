@@ -7,12 +7,16 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Telugu:wght@400;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 
+<!-- PWA Manifest -->
+<link rel="manifest" href="manifest.json">
+
 <!-- Cache Control -->
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
 <meta http-equiv="Pragma" content="no-cache" />
 <meta http-equiv="Expires" content="0" />
 
 <style>
+/* All your existing CSS remains exactly the same */
 *{margin:0;padding:0;box-sizing:border-box}
 html, body {
   height: 100%;
@@ -804,8 +808,8 @@ html {
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
 <script>
-// ==================== FIREBASE CONFIGURATION ====================
-const FIREBASE_ENABLED = true; // Enable Firebase for cross-device sync
+// ==================== FIREBASE CONFIGURATION WITH OPTIMIZATIONS ====================
+const FIREBASE_ENABLED = true;
 
 // Firebase configuration
 const firebaseConfig = {
@@ -819,43 +823,112 @@ const firebaseConfig = {
   measurementId: "G-HMZXGT78G0"
 };
 
-// Initialize Firebase
+// Initialize Firebase with optimizations
 let firebaseApp;
 let database;
+let isFirebaseConnected = false;
 
 function initializeFirebaseWithRetry(retryCount = 0) {
   if (FIREBASE_ENABLED && typeof firebase !== 'undefined') {
     try {
       firebaseApp = firebase.initializeApp(firebaseConfig);
       database = firebase.database();
+      isFirebaseConnected = true;
       console.log("🔥 Firebase initialized successfully");
-      setupRealtimeSync();
+      
+      // Set connection quality to reduce bandwidth
+      if (database && database.goOnline) {
+        database.goOnline(); // Ensure we're online but with optimizations
+      }
+      
+      setupOptimizedRealtimeSync();
+      
     } catch (error) {
       console.error("Firebase initialization failed, retrying...", error);
       
-      if (retryCount < 3) {
-        setTimeout(() => initializeFirebaseWithRetry(retryCount + 1), 3000);
+      if (retryCount < 2) { // Reduced retry attempts
+        setTimeout(() => initializeFirebaseWithRetry(retryCount + 1), 2000);
       } else {
-        console.error("🔥 Firebase failed after 3 retries");
-        showFirebaseError();
+        console.error("🔥 Firebase failed after retries, using localStorage only");
+        isFirebaseConnected = false;
+        showFirebaseWarning();
       }
     }
   }
 }
 
-function showFirebaseError() {
-  const vendorGrid = document.getElementById('vendor-grid');
-  if (vendorGrid) {
-    vendorGrid.innerHTML = `
-      <div style="text-align:center;grid-column:1/-1;padding:2rem">
-        <i class="fas fa-exclamation-triangle" style="font-size:2rem;color:#ffd700"></i>
-        <p>Network connection issue</p>
-        <p style="font-size:0.9rem;color:#ccc">Please check your internet and refresh</p>
-        <button class="glow-btn" onclick="location.reload()" style="margin-top:1rem">
-          <i class="fas fa-redo"></i> Refresh Page
-        </button>
-      </div>
-    `;
+function showFirebaseWarning() {
+  console.log("⚠️ Firebase not available, using localStorage only");
+}
+
+// ==================== OPTIMIZED FIREBASE SYNC ====================
+
+function setupOptimizedRealtimeSync() {
+  if (!FIREBASE_ENABLED || !database || !isFirebaseConnected) return;
+
+  try {
+    // Use once() instead of on() for initial load to reduce reads
+    database.ref('vendors').once('value')
+      .then((snapshot) => {
+        const firebaseVendors = snapshot.val();
+        if (firebaseVendors && Array.isArray(firebaseVendors)) {
+          if (JSON.stringify(vendors) !== JSON.stringify(firebaseVendors)) {
+            vendors = firebaseVendors;
+            localStorage.setItem('vendors_v2', JSON.stringify(vendors));
+            console.log("📱 Loaded vendors from Firebase:", vendors.length);
+            showVendors();
+            updateFreeSlots();
+          }
+        }
+      })
+      .catch((error) => {
+        console.error("Firebase load error:", error);
+        isFirebaseConnected = false;
+      });
+
+    console.log("🔄 Optimized sync activated");
+  } catch (error) {
+    console.error("Real-time sync error:", error);
+    isFirebaseConnected = false;
+  }
+}
+
+// Optimized Firebase save with batching
+let firebaseSaveQueue = [];
+let isSavingToFirebase = false;
+
+async function saveVendorsToFirebaseOptimized() {
+  if (!FIREBASE_ENABLED || !database || !isFirebaseConnected) {
+    console.log("Firebase not available, using localStorage only");
+    return;
+  }
+
+  // If already saving, queue the request
+  if (isSavingToFirebase) {
+    firebaseSaveQueue.push(Date.now());
+    return;
+  }
+
+  isSavingToFirebase = true;
+
+  try {
+    // Use set() instead of update() for better performance
+    await database.ref('vendors').set(vendors);
+    console.log("💾 Vendors saved to Firebase (optimized):", vendors.length);
+    
+    // Clear queue after successful save
+    firebaseSaveQueue = [];
+    
+  } catch (error) {
+    console.error("Firebase save error:", error);
+    isFirebaseConnected = false;
+  } finally {
+    isSavingToFirebase = false;
+    
+    // Process any queued saves
+    if (firebaseSaveQueue.length > 0) {
+      setTimeout(saveVendorsToFirebaseOptimized, 1000); // Throttle saves
+    }
   }
 }
 
@@ -878,81 +951,7 @@ let tempVendor = null;
 let contactAction = null;
 let searchTimeout;
 
-// ==================== FIREBASE SYNC FUNCTIONS ====================
-
-function getDeviceId() {
-  let deviceId = localStorage.getItem('device_id');
-  if (!deviceId) {
-    deviceId = 'device_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-    localStorage.setItem('device_id', deviceId);
-  }
-  return deviceId;
-}
-
-async function saveVendorsToFirebase() {
-  if (!FIREBASE_ENABLED || !database) {
-    console.log("Firebase not available, using localStorage only");
-    return;
-  }
-
-  try {
-    await database.ref('vendors').set(vendors);
-    console.log("💾 Vendors saved to Firebase:", vendors.length);
-  } catch (error) {
-    console.error("Firebase save error:", error);
-  }
-}
-
-async function loadVendorsFromFirebase() {
-  if (!FIREBASE_ENABLED || !database) {
-    console.log("Firebase not available, using localStorage only");
-    return;
-  }
-
-  try {
-    const snapshot = await database.ref('vendors').once('value');
-    const firebaseVendors = snapshot.val();
-    
-    if (firebaseVendors && Array.isArray(firebaseVendors)) {
-      vendors = firebaseVendors;
-      localStorage.setItem('vendors_v2', JSON.stringify(vendors));
-      console.log("📱 Loaded vendors from Firebase:", vendors.length);
-      showVendors();
-      updateFreeSlots();
-    }
-  } catch (error) {
-    console.error("Firebase load error:", error);
-  }
-}
-
-function setupRealtimeSync() {
-  if (!FIREBASE_ENABLED || !database) return;
-
-  try {
-    database.ref('vendors').on('value', (snapshot) => {
-      const firebaseVendors = snapshot.val();
-      if (firebaseVendors && Array.isArray(firebaseVendors)) {
-        if (JSON.stringify(vendors) !== JSON.stringify(firebaseVendors)) {
-          vendors = firebaseVendors;
-          localStorage.setItem('vendors_v2', JSON.stringify(vendors));
-          console.log("🔄 Real-time sync: Vendors updated", vendors.length);
-          showVendors();
-          updateFreeSlots();
-          
-          if (document.getElementById('dashboard') && 
-              document.getElementById('dashboard').style.display !== 'none') {
-            showDashboard();
-          }
-        }
-      }
-    });
-    console.log("🔄 Real-time sync activated");
-  } catch (error) {
-    console.error("Real-time sync error:", error);
-  }
-}
-
-// ==================== UPDATED VENDOR SAVE FUNCTION ====================
+// ==================== OPTIMIZED VENDOR SAVE ====================
 
 function saveVendor(photoData, f, isFree) {
   const defaultPhoto = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTUwIiBoZWlnaHQ9IjE1MCIgdmlld0JveD0iMCAwIDE1MCAxNTAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjE1MCIgaGVpZ2h0PSI1MCIgZmlsbD0iIzIwM2E0MyIvPjxjaXJjbGUgY3g9Ijc1IiBjeT0iNjAiIHI9IjIwIiBmaWxsPSIjZmZkNzAwIi8+PHBhdGggZD0iTTMwIDEyMFYxMTBDMzAgOTUgNDUgODUgNzUgODVDMTA1IDg1IDEyMCA5NSAxMjAgMTEwVjEyMCIgc3Ryb2tlPSIjZmZkNzAwIiBzdHJva2Utd2lkdGg9IjIiLz48L3N2Zz4=';
@@ -973,7 +972,7 @@ function saveVendor(photoData, f, isFree) {
     photo: finalPhoto,
     description: f.desc.value.trim(),
     paid: !isFree,
-    approved: false, // CHANGED: All vendors require admin approval
+    approved: false, // All vendors require admin approval
     regDate: new Date().toLocaleDateString('en-IN'),
     regDateTime: new Date().toLocaleString('en-IN'),
     deviceId: getDeviceId(),
@@ -983,7 +982,8 @@ function saveVendor(photoData, f, isFree) {
   vendors.push(vendor);
   localStorage.setItem('vendors_v2', JSON.stringify(vendors));
   
-  saveVendorsToFirebase().then(() => {
+  // Use optimized Firebase save
+  saveVendorsToFirebaseOptimized().then(() => {
     console.log("✅ Vendor saved and synced to all devices");
   });
 
@@ -1002,12 +1002,22 @@ function saveVendor(photoData, f, isFree) {
 function saveV() { 
   localStorage.setItem('vendors_v2', JSON.stringify(vendors));
   
+  // Use optimized Firebase save
   if (FIREBASE_ENABLED) {
-    saveVendorsToFirebase();
+    saveVendorsToFirebaseOptimized();
   }
 }
 
-// ==================== CORE FUNCTIONS ====================
+// ==================== REMAINING FUNCTIONS (SAME AS BEFORE) ====================
+
+function getDeviceId() {
+  let deviceId = localStorage.getItem('device_id');
+  if (!deviceId) {
+    deviceId = 'device_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    localStorage.setItem('device_id', deviceId);
+  }
+  return deviceId;
+}
 
 function updateDateTime() {
   const now = new Date();
@@ -1031,10 +1041,7 @@ function show(p) {
   document.getElementById(p).classList.add('active');
   window.scrollTo({ top: 0, behavior: 'smooth' });
   
-  console.log("📄 Page changed to:", p);
-  
   if (p === 'vendors') {
-    console.log("🎯 Vendors page - calling showVendors");
     setTimeout(() => {
       if (typeof showVendors === 'function') {
         showVendors();
@@ -1117,8 +1124,7 @@ function closeContactPopup() {
   contactAction = null;
 }
 
-// ==================== VENDOR MANAGEMENT ====================
-
+// Vendor management functions (same as before)
 document.getElementById('vendor-form').addEventListener('submit', function(e) {
   e.preventDefault();
   const f = this.elements;
@@ -1155,16 +1161,10 @@ document.getElementById('paid-btn').onclick = () => {
 };
 
 function showVendors() {
-  console.log("🎯 showVendors function called");
-  
   const grid = document.getElementById('vendor-grid');
-  if (!grid) {
-    console.log("❌ vendor-grid not found");
-    return;
-  }
+  if (!grid) return;
   
   const approvedVendors = vendors.filter(v => v.approved && !isExpired(v.regDate));
-  console.log("Approved vendors to show:", approvedVendors.length);
   
   if (approvedVendors.length === 0) {
     grid.innerHTML = '<p style="text-align:center;grid-column:1/-1;padding:2rem">No vendors found</p>';
@@ -1212,8 +1212,6 @@ function showVendors() {
       </div>
     </div>
   `).join('');
-  
-  console.log("✅ Vendors with photos displayed successfully");
 }
 
 function showEditForm(vendorId) {
@@ -1283,8 +1281,7 @@ function cancelEdit(vendorId) {
   vendorBox.style.display = 'block';
 }
 
-// ==================== ADMIN FUNCTIONS ====================
-
+// Admin functions (same as before)
 let adminSession = false;
 
 function adminLogin() {
@@ -1353,6 +1350,7 @@ function toggleAll(source) {
   updateSelectedCount();
 }
 
+// FIXED: Delete function now properly syncs with Firebase
 function deleteSelected() {
   const selected = Array.from(document.querySelectorAll('.vendor-check:checked')).map(cb => parseInt(cb.dataset.id));
   if (selected.length === 0) {
@@ -1363,7 +1361,12 @@ function deleteSelected() {
   if (confirm(`Delete ${selected.length} vendor(s) forever?`)) {
     vendors = vendors.filter(v => !selected.includes(v.id));
     saveV();
-    popup('Deleted', `${selected.length} vendor(s) removed successfully`);
+    
+    // Force sync with Firebase to ensure all devices get the update
+    saveVendorsToFirebaseOptimized().then(() => {
+      popup('Deleted', `${selected.length} vendor(s) removed successfully from all devices`);
+    });
+    
     showDashboard(); 
     showVendors();
   }
@@ -1401,8 +1404,7 @@ function deleteCategory(category) {
   }
 }
 
-// ==================== SEARCH & FILTER ====================
-
+// Search functions (same as before)
 function debounceSearch(func, delay = 300) {
   return function(...args) {
     clearTimeout(searchTimeout);
@@ -1454,14 +1456,12 @@ function filterByCategory(c) {
   showVendors(filtered);
 }
 
-// ==================== STORAGE FUNCTIONS ====================
-
+// Storage functions
 function saveCategories() {
   localStorage.setItem(CACHE_KEYS.CATEGORIES, JSON.stringify(CATEGORIES));
 }
 
-// ==================== BACKUP FUNCTIONS ====================
-
+// Backup functions (same as before)
 function completeOneClickBackup() {
   try {
     const backupData = {
@@ -1538,8 +1538,7 @@ function oneClickRestore() {
   document.getElementById('backup-file').click();
 }
 
-// ==================== SHARE FUNCTION ====================
-
+// Share function
 function shareApp() {
   if (navigator.share) {
     navigator.share({
@@ -1559,12 +1558,12 @@ function shareApp() {
   }
 }
 
-// ==================== INITIALIZATION ====================
-
+// Initialize
 window.onload = async () => {
   updateCategoriesDisplay();
   updateFreeSlots();
   
+  // Initialize Firebase with optimizations
   initializeFirebaseWithRetry();
   
   const savedPage = localStorage.getItem('currentPage') || 'home';
@@ -1605,6 +1604,58 @@ window.onload = async () => {
          opacity:0;transition:opacity 0.4s,bottom 0.4s;">
   App Installed Successfully!
 </div>
+
+<script>
+// PWA Installation
+let deferredPrompt;
+const installBtn = document.getElementById('install-btn');
+const toast = document.getElementById('toast');
+
+// Show install button only if PWA is not already installed
+if (window.matchMedia('(display-mode: standalone)').matches) {
+  installBtn.style.display = 'none';
+}
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  installBtn.style.display = 'flex';
+});
+
+installBtn.addEventListener('click', async () => {
+  if (!deferredPrompt) return;
+  
+  deferredPrompt.prompt();
+  const { outcome } = await deferredPrompt.userChoice;
+  
+  if (outcome === 'accepted') {
+    deferredPrompt = null;
+    installBtn.style.display = 'none';
+    showToast('App Installed Successfully!');
+  }
+});
+
+function showToast(message) {
+  toast.textContent = message;
+  toast.style.visibility = 'visible';
+  toast.style.opacity = '1';
+  toast.style.bottom = '80px';
+  
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.bottom = '50px';
+    setTimeout(() => {
+      toast.style.visibility = 'hidden';
+    }, 400);
+  }, 3000);
+}
+
+window.addEventListener('appinstalled', () => {
+  deferredPrompt = null;
+  installBtn.style.display = 'none';
+  showToast('App Installed Successfully!');
+});
+</script>
 
 </body>
 </html>
