@@ -897,6 +897,18 @@ function setupOptimizedRealtimeSync() {
 let firebaseSaveQueue = [];
 let isSavingToFirebase = false;
 
+
+// ==================== FIREBASE MONITORING ====================
+function showFirebaseStats() {
+  console.log("=== 🔥 FIREBASE OPTIMIZATION STATS ===");
+  console.log(`Total Vendors: ${vendors.length}`);
+  console.log(`Save Queue: ${firebaseSaveQueue.length} pending`);
+  console.log(`Currently Saving: ${isSavingToFirebase}`);
+  console.log(`Firebase Connected: ${isFirebaseConnected}`);
+  console.log("=====================================");
+}
+// ==================== END MONITORING ====================
+
 async function saveVendorsToFirebaseOptimized() {
   if (!FIREBASE_ENABLED || !database || !isFirebaseConnected) {
     console.log("Firebase not available, using localStorage only");
@@ -939,11 +951,12 @@ const CACHE_KEYS = {
   TIMESTAMP: 'data_timestamp'
 };
 
+// FIXED: Added "Others" category to the array
 let CATEGORIES = JSON.parse(localStorage.getItem(CACHE_KEYS.CATEGORIES)) || [
   "Electricians", "Plumbers", "Carpenters", "Mechanics", "Painters", 
   "Teachers / Tutors", "Doctors / Clinics", "Lawyers / Legal Advisors", 
   "Astrologers", "Travel Agencies", "Salons & Beauty Parlours", 
-  "Tailors / Boutiques"
+  "Tailors / Boutiques", "Others"
 ];
 
 let vendors = JSON.parse(localStorage.getItem('vendors_v2')) || [];
@@ -954,7 +967,7 @@ let searchTimeout;
 // ==================== OPTIMIZED VENDOR SAVE ====================
 
 function saveVendor(photoData, f, isFree) {
-  const defaultPhoto = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTUwIiBoZWlnaHQ9IjE1MCIgdmlld0JveD0iMCAwIDE1MCAxNTAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjE1MCIgaGVpZ2h0PSI1MCIgZmlsbD0iIzIwM2E0MyIvPjxjaXJjbGUgY3g9Ijc1IiBjeT0iNjAiIHI9IjIwIiBmaWxsPSIjZmZkNzAwIi8+PHBhdGggZD0iTTMwIDEyMFYxMTBDMzAgOTUgNDUgODUgNzUgODVDMTA1IDg1IDEyMCA5NSAxMjAgMTEwVjEyMCIgc3Ryb2tlPSIjZmZkNzAwIiBzdHJva2Utd2lkdGg9IjIiLz48L3N2Zz4=';
+  const defaultPhoto = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTUwIiBoZWlnaHQ9IjE1MCIgdmlld0JveD0iMCAwIDE1MCAxNTAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjE1MCIgaGVpZ2h0PSI1MCIgZmlsbD0iIzIwM2E0MyIvPjxjaXJjbGUgY3g9Ijc1IiBjeT0iNjAiIHI9IjIwIiBmaWxsPSIjZmZkNzAwIi8+PHBhdGggZD0iTTMwIDEyMFYxExBDMzAgOTUgNDUgODUgNzUgODVDMTA1IDg1IDEyMCA5NSAxMjAgMTEwVjEyMCIgc3Ryb2tlPSIjZmZkNzAwIiBzdHJva2Utd2lkdGg9IjIiLz48L3N2Zz4=';
 
   let finalPhoto = defaultPhoto;
   
@@ -985,6 +998,7 @@ function saveVendor(photoData, f, isFree) {
   // Use optimized Firebase save
   saveVendorsToFirebaseOptimized().then(() => {
     console.log("✅ Vendor saved and synced to all devices");
+showFirebaseStats();
   });
 
   if (isFree) {
@@ -1062,6 +1076,7 @@ function closePopup() {
   document.getElementById('popup').classList.remove('show'); 
 }
 
+// FIXED: Updated categories display to include "Others"
 function updateCategoriesDisplay() {
   document.getElementById('categories').innerHTML = CATEGORIES.map(c => 
     `<div class="category-btn" onclick="filterByCategory('${c}')">${c}</div>`
@@ -1160,11 +1175,11 @@ document.getElementById('paid-btn').onclick = () => {
   }
 };
 
-function showVendors() {
+function showVendors(filteredVendors = null) {
   const grid = document.getElementById('vendor-grid');
   if (!grid) return;
   
-  const approvedVendors = vendors.filter(v => v.approved && !isExpired(v.regDate));
+  let approvedVendors = filteredVendors || vendors.filter(v => v.approved && !isExpired(v.regDate));
   
   if (approvedVendors.length === 0) {
     grid.innerHTML = '<p style="text-align:center;grid-column:1/-1;padding:2rem">No vendors found</p>';
@@ -1281,9 +1296,7 @@ function cancelEdit(vendorId) {
   vendorBox.style.display = 'block';
 }
 
-// Admin functions (same as before)
-let adminSession = false;
-
+// ==================== FIXED ADMIN LOGIN (REMOVED POPUP) ====================
 function adminLogin() {
   const user = document.getElementById('admin-user').value.trim();
   const pass = document.getElementById('admin-pass').value.trim();
@@ -1292,7 +1305,7 @@ function adminLogin() {
     document.getElementById('login-box').style.display = "none";
     document.getElementById('dashboard').style.display = "block";
     showDashboard();
-    popup('Login Success', 'Welcome Admin!');
+    // REMOVED: popup('Login Success', 'Welcome Admin!');
   } else {
     popup('Login Failed', 'Invalid username or password.');
   }
@@ -1353,31 +1366,46 @@ function toggleAll(source) {
 // FIXED: Delete function now properly syncs with Firebase
 function deleteSelected() {
   const selected = Array.from(document.querySelectorAll('.vendor-check:checked')).map(cb => parseInt(cb.dataset.id));
+  
+  console.log("🔍 DEBUG DELETE:");
+  console.log("Selected checkbox IDs:", selected);
+  console.log("All vendor IDs:", vendors.map(v => v.id));
+  console.log("Vendors before deletion:", vendors.length);
+  
   if (selected.length === 0) {
     popup('Error', 'Please select at least one vendor to delete');
     return;
   }
   
+  // Verify each selected ID exists
+  selected.forEach(id => {
+    const exists = vendors.some(v => v.id === id);
+    console.log(`ID ${id} exists in vendors: ${exists}`);
+    if (exists) {
+      const vendor = vendors.find(v => v.id === id);
+      console.log(`  - Vendor: ${vendor.name}, Service: ${vendor.service}`);
+    }
+  });
+  
   if (confirm(`Delete ${selected.length} vendor(s) forever?`)) {
+    const beforeCount = vendors.length;
     vendors = vendors.filter(v => !selected.includes(v.id));
+    const afterCount = vendors.length;
+    const deletedCount = beforeCount - afterCount;
+    
+    console.log(`✅ Deletion result: ${deletedCount} vendors deleted`);
+    console.log(`Vendors after deletion: ${afterCount}`);
+    
     saveV();
     
     // Force sync with Firebase to ensure all devices get the update
     saveVendorsToFirebaseOptimized().then(() => {
-      popup('Deleted', `${selected.length} vendor(s) removed successfully from all devices`);
+      popup('Deleted', `${deletedCount} vendor(s) removed successfully from all devices`);
     });
     
     showDashboard(); 
     showVendors();
   }
-}
-
-function approve(id) {
-  vendors = vendors.map(v => v.id === id ? {...v, approved: true} : v);
-  saveV();
-  popup('Approved!', 'Vendor is now LIVE');
-  showDashboard(); 
-  showVendors();
 }
 
 function addCategory() {
@@ -1402,6 +1430,22 @@ function deleteCategory(category) {
     updateCategoriesDisplay();
     popup('Success', 'Category deleted successfully');
   }
+}
+
+// ==================== FIXED CATEGORY FILTERING ====================
+function filterByCategory(c) {
+  show('vendors');
+  let filtered = vendors.filter(v => v.approved && !isExpired(v.regDate));
+  
+  if (c === 'Others') {
+    // Show vendors with custom services (not in predefined categories)
+    filtered = filtered.filter(v => !CATEGORIES.includes(v.service));
+  } else {
+    // Show vendors from the selected category
+    filtered = filtered.filter(v => v.service === c);
+  }
+  
+  showVendors(filtered);
 }
 
 // Search functions (same as before)
@@ -1444,17 +1488,6 @@ const optimizedFilterVendors = debounceSearch(function() {
   
   showVendors(results);
 });
-
-function filterByCategory(c) {
-  show('vendors');
-  let filtered = vendors.filter(v => v.approved && !isExpired(v.regDate));
-  if (c !== 'Others') {
-    filtered = filtered.filter(v => v.service === c);
-  } else {
-    filtered = filtered.filter(v => !CATEGORIES.includes(v.service));
-  }
-  showVendors(filtered);
-}
 
 // Storage functions
 function saveCategories() {
@@ -1655,6 +1688,57 @@ window.addEventListener('appinstalled', () => {
   installBtn.style.display = 'none';
   showToast('App Installed Successfully!');
 });
+
+
+// ==================== TEST FUNCTIONS ====================
+function testDeleteFirstVendor() {
+  if (vendors.length > 0) {
+    const firstVendor = vendors[0];
+    console.log("🧪 TEST: Deleting first vendor:", firstVendor.name, firstVendor.id);
+    
+    if (confirm("Test: Delete " + firstVendor.name + "?")) {
+      vendors = vendors.filter(function(v) { return v.id !== firstVendor.id; });
+      console.log("✅ Test deletion successful. Remaining vendors:", vendors.length);
+      
+      saveV();
+      showDashboard();
+      showVendors();
+      popup('Test', 'Manual deletion test successful');
+    }
+  } else {
+    console.log("❌ No vendors to delete");
+  }
+}
+
+function checkVendorStatus(vendorId = null) {
+  if (!vendorId && vendors.length > 0) {
+    vendorId = vendors[0].id;
+  }
+  
+  const vendor = vendors.find(v => v.id === vendorId);
+  if (vendor) {
+    console.log("🔍 Vendor status:", {
+      name: vendor.name,
+      id: vendor.id,
+      approved: vendor.approved,
+      regDate: vendor.regDate,
+      expired: isExpired(vendor.regDate),
+      visible: vendor.approved && !isExpired(vendor.regDate)
+    });
+    return vendor;
+  } else {
+    console.log("❌ Vendor not found with ID:", vendorId);
+    return null;
+  }
+}
+
+function findApprovedVendors() {
+  const approvedVendors = vendors.filter(v => v.approved && !isExpired(v.regDate));
+  console.log("✅ Approved & visible vendors:", approvedVendors.length);
+  console.log(approvedVendors.map(v => ({name: v.name, id: v.id, service: v.service})));
+  return approvedVendors;
+}
+// ==================== END TEST FUNCTIONS ====================
 </script>
 
 </body>
