@@ -47,6 +47,29 @@ header{
   flex-wrap:nowrap;
   gap:1rem;
 }
+@keyframes pulse {
+  0%,100% { transform: scale(1) }
+  50% { transform: scale(1.1) }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(100px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+
+
+
 .logo{font-size:1.5rem;font-weight:700;background:linear-gradient(90deg,#ffd700,#ff8c00);-webkit-background-clip:text;-webkit-text-fill-color:transparent;display:flex;align-items:center;gap:8px;white-space:nowrap}
 .logo img{width:32px;height:32px;border-radius:50%;border:2px solid #ffd700}
 .datetime{font-size:0.75rem;color:#ffd700;font-weight:500;white-space:nowrap;text-align:center;flex-shrink:0;position:absolute;left:50%;transform:translateX(-50%);}
@@ -455,6 +478,47 @@ html {
   justify-content: center;
   margin-top: 1rem;
 }
+
+/* NEW: WhatsApp Support Button */
+.whatsapp-support-btn {
+  background: linear-gradient(45deg, #25d366, #128C7E) !important;
+  color: white !important;
+  border: none;
+  padding: 0.8rem 1.2rem;
+  border-radius: 50px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 0 15px rgba(37, 211, 102, 0.5);
+  transition: 0.3s;
+  font-size: 0.9rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  justify-content: center;
+  width: 100%;
+  margin-top: 0.5rem;
+}
+
+.whatsapp-support-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 25px rgba(37, 211, 102, 0.7);
+}
+
+/* NEW: Loading Spinner */
+.loading-spinner {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 3px solid rgba(255,255,255,.3);
+  border-radius: 50%;
+  border-top-color: #fff;
+  animation: spin 1s ease-in-out infinite;
+  margin-right: 8px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
 </style>
 
 </head>
@@ -487,7 +551,7 @@ html {
     <p class="telugu">ప్రజలను స్థానిక సేవలతో కలుపుతోంది - త్వరగా, సురక్షితంగా మరియు సరళంగా</p>
     <p style="font-size:1rem;margin:1rem 0">One Tap to Find Electricians, Plumbers, Packers,Tutors, Professionals & More!</p>
     <div class="search-bar">
-      <input type="text" id="global-search" placeholder="Search name, service or area..." class="placeholder-english">
+      <input type="text" id="global-search" placeholder="Search name, service or area..." class="placeholder-english" oninput="debouncedGlobalSearch()">
       <button class="glow-btn" onclick="optimizedGlobalSearch()">Search</button>
     </div>
     <div class="categories" id="categories"></div>
@@ -613,7 +677,7 @@ html {
   <div class="card">
     <h2 style="text-align:center">Verified Local Vendors</h2>
     <div class="search-bar">
-      <input type="text" id="vendor-search" placeholder="Search vendors..." class="placeholder-english">
+      <input type="text" id="vendor-search" placeholder="Search vendors..." class="placeholder-english" oninput="debouncedVendorSearch()">
       <button class="glow-btn" onclick="optimizedFilterVendors()">Go</button>
     </div>
     <div class="vendor-grid" id="vendor-grid"></div>
@@ -643,16 +707,15 @@ html {
       <label>Experience (Years) * / అనుభవం (సంవత్సరాలు) *</label>
       <input type="number" name="exp" min="0" required placeholder="Enter years of experience / అనుభవం సంవత్సరాలు నమోదు చేయండి" class="placeholder-english">
       
-      <label>Photo (Optional) / ఫోటో (ఐచ్ఛికం)</label>
-      <input type="file" name="photo" accept="image/*">
-      <p> Pls Upload your photo size  below 20kb only. Photo Size above 20kb not accepted </p>
-      <p>దయచేసి మీ ఫోటోను 20KB లోపు మాత్రమే అప్‌లోడ్ చేయండి. 20KB కంటే ఎక్కువ సైజు ఉన్న ఫోటోలు అంగీకరించబడవు.</p> 
+    <label>Photo (Optional) / ఫోటో (ఐచ్ఛికం)</label>
+<input type="file" name="photo" accept="image/*">
+
 
       
       <label>Description * / వివరణ *</label>
       <textarea name="desc" rows="3" required placeholder="Describe your services / మీ సేవలను వివరించండి" class="placeholder-english"></textarea>
       
-      <button type="submit" class="glow-btn" style="width:100%;padding:1rem;margin-top:1.5rem">
+      <button type="submit" class="glow-btn" style="width:100%;padding:1rem;margin-top:1.5rem" id="submit-btn">
         Submit Registration / నమోదును సమర్పించండి
       </button>
     </form>
@@ -788,6 +851,16 @@ html {
       <p>Salons • Tailors • And More...</p>
     </div>
     
+    <div class="footer-section">
+      <h3>Need Help?</h3>
+      <p>Chat with us on WhatsApp for quick support</p>
+      <p class="telugu">త్వరిత సహాయం కోసం మాతో WhatsAppలో చాట్ చేయండి</p>
+      <button class="whatsapp-support-btn" onclick="openSupportWhatsApp()">
+        <i class="fab fa-whatsapp"></i> Chat with Support
+      </button>
+    </div>
+    
+    <!-- ADD BACK THE SHARE APP SECTION -->
     <div class="footer-section">
       <h3>Share This App</h3>
       <p>Help others discover Lokonex by sharing this app</p>
@@ -959,15 +1032,208 @@ let CATEGORIES = JSON.parse(localStorage.getItem(CACHE_KEYS.CATEGORIES)) || [
   "Tailors / Boutiques", "Others"
 ];
 
+
+function debugCategories() {
+  console.log("Categories:", CATEGORIES);
+  console.log("Categories element:", document.getElementById('categories'));
+  console.log("Categories HTML:", document.getElementById('categories').innerHTML);
+}
+setTimeout(debugCategories, 1000);
 let vendors = JSON.parse(localStorage.getItem('vendors_v2')) || [];
 let tempVendor = null;
 let contactAction = null;
 let searchTimeout;
 
+// ==================== AUTO-UPDATE FUNCTIONALITY ====================
+// ==================== AUTO-UPDATE FUNCTIONALITY ====================
+const APP_VERSION = '1.3.0'; // Update this when you make changes
+
+function checkForUpdates() {
+  const storedVersion = localStorage.getItem('app_version');
+  
+  if (storedVersion !== APP_VERSION) {
+    console.log(`🔄 App update detected: ${storedVersion} -> ${APP_VERSION}`);
+    
+    // Clear all caches and reload
+    clearAllCaches().then(() => {
+      // Update stored version
+      localStorage.setItem('app_version', APP_VERSION);
+      
+      // Show update notification
+      showUpdateNotification();
+    });
+  }
+}
+
+function clearAllCaches() {
+  return new Promise((resolve) => {
+    // Clear service worker caches
+    if ('caches' in window) {
+      caches.keys().then(function(cacheNames) {
+        const deletePromises = cacheNames.map(function(cacheName) {
+          console.log(`🗑️ Deleting cache: ${cacheName}`);
+          return caches.delete(cacheName);
+        });
+        Promise.all(deletePromises).then(() => {
+          console.log('✅ All caches cleared');
+          resolve();
+        });
+      }).catch(() => resolve());
+    } else {
+      resolve();
+    }
+  });
+}
+
+function showUpdateNotification() {
+  const updateNotification = document.createElement('div');
+  updateNotification.id = 'update-notification';
+  updateNotification.style.cssText = `
+    position: fixed;
+    top: 70px;
+    right: 15px;
+    background: linear-gradient(45deg, #ffd700, #ff8c00);
+    color: #000;
+    padding: 12px 16px;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(255, 215, 0, 0.6);
+    z-index: 9999;
+    font-weight: 600;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    max-width: 300px;
+    animation: slideIn 0.5s ease-out;
+  `;
+  
+  updateNotification.innerHTML = `
+    <i class="fas fa-sync-alt"></i>
+    <span>App Updated to v${APP_VERSION}! Refresh to see changes</span>
+    <button onclick="forceRefreshApp()" style="
+      background: #000;
+      color: #ffd700;
+      border: none;
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      margin-left: 8px;
+    ">Refresh Now</button>
+  `;
+  
+  document.body.appendChild(updateNotification);
+  
+  // Auto-remove after 15 seconds
+  setTimeout(() => {
+    if (updateNotification.parentNode) {
+      updateNotification.remove();
+    }
+  }, 15000);
+}
+
+function forceRefreshApp() {
+  // Clear all storage except vendors data
+  const vendorsBackup = localStorage.getItem('vendors_v2');
+  const categoriesBackup = localStorage.getItem('categories_v2');
+  
+  localStorage.clear();
+  
+  // Restore important data
+  if (vendorsBackup) localStorage.setItem('vendors_v2', vendorsBackup);
+  if (categoriesBackup) localStorage.setItem('categories_v2', categoriesBackup);
+  localStorage.setItem('app_version', APP_VERSION);
+  
+  // Force reload
+  window.location.reload(true);
+}
+
+// Service Worker Registration for PWA updates
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('/sw.js').then(function(registration) {
+      console.log('SW registered: ', registration);
+      
+      // Check for service worker updates
+      registration.addEventListener('updatefound', () => {
+        const newWorker = registration.installing;
+        console.log('SW update found!');
+        
+        newWorker.addEventListener('statechange', () => {
+          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+            console.log('New content is available; please refresh.');
+            showServiceWorkerUpdate();
+          }
+        });
+      });
+    }).catch(function(registrationError) {
+      console.log('SW registration failed: ', registrationError);
+    });
+    
+    // Check for any waiting service workers
+    navigator.serviceWorker.ready.then(registration => {
+      if (registration.waiting) {
+        showServiceWorkerUpdate();
+      }
+    });
+  });
+}
+
+function showServiceWorkerUpdate() {
+  const swUpdateNotification = document.createElement('div');
+  swUpdateNotification.id = 'sw-update-notification';
+  swUpdateNotification.style.cssText = `
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(45deg, #25d366, #128C7E);
+    color: white;
+    padding: 12px 20px;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(37, 211, 102, 0.6);
+    z-index: 9999;
+    font-weight: 600;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    max-width: 90%;
+    text-align: center;
+  `;
+  
+  swUpdateNotification.innerHTML = `
+    <i class="fas fa-sync-alt"></i>
+    <span>New version available!</span>
+    <button onclick="updateServiceWorker()" style="
+      background: #fff;
+      color: #25d366;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      margin-left: 8px;
+      font-weight: 600;
+    ">Update Now</button>
+  `;
+  
+  document.body.appendChild(swUpdateNotification);
+}
+
+function updateServiceWorker() {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.ready.then(registration => {
+      registration.waiting.postMessage({type: 'SKIP_WAITING'});
+      window.location.reload();
+    });
+  }
+}
+
 // ==================== OPTIMIZED VENDOR SAVE ====================
 
 function saveVendor(photoData, f, isFree) {
-  const defaultPhoto = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTUwIiBoZWlnaHQ9IjE1MCIgdmlld0JveD0iMCAwIDE1MCAxNTAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjE1MCIgaGVpZ2h0PSI1MCIgZmlsbD0iIzIwM2E0MyIvPjxjaXJjbGUgY3g9Ijc1IiBjeT0iNjAiIHI9IjIwIiBmaWxsPSIjZmZkNzAwIi8+PHBhdGggZD0iTTMwIDEyMFYxExBDMzAgOTUgNDUgODUgNzUgODVDMTA1IDg1IDEyMCA5NSAxMjAgMTEwVjEyMCIgc3Ryb2tlPSIjZmZkNzAwIiBzdHJva2Utd2lkdGg9IjIiLz48L3N2Zz4=';
+  const defaultPhoto = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTUwIiBoZWlnaHQ9IjE1MCIgdmlld0JveD0iMCAwIDE1MCAxNTAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjE1MCIgaGVpZ2h0PSI1MCIgZmlsbD0iIzIwM2E0MyIvPjxjaXJjbGUgY3g9Ijc1IiBjeT0iNjAiIHI9IjIwIiBmaWxsPSIjZmZkNzAwIi8+PHBhdGggZD0iTTMwIDEyMFYxMTBDMzAgOTUgNDUgODUgNzUgODVDMTA1IDg1IDEyMCA5NSAxMjAgMTEwVjEyMCIgc3Ryb2tlPSIjZmZkNzAwIiBzdHJva2Utd2lkdGg9IjIiLz48L3N2Zz4=';
 
   let finalPhoto = defaultPhoto;
   
@@ -998,7 +1264,7 @@ function saveVendor(photoData, f, isFree) {
   // Use optimized Firebase save
   saveVendorsToFirebaseOptimized().then(() => {
     console.log("✅ Vendor saved and synced to all devices");
-showFirebaseStats();
+    showFirebaseStats();
   });
 
   if (isFree) {
@@ -1085,7 +1351,7 @@ function updateCategoriesDisplay() {
   const sel = document.getElementById('service-select');
   sel.innerHTML = '<option value="">-- Select Service -- / సేవను ఎంచుకోండి --</option>' + 
     CATEGORIES.map(c => `<option value="${c}">${c}</option>`).join('') + 
-    '<option value="Others">Others</option>';
+
 
   updateAdminCategories();
 }
@@ -1139,26 +1405,45 @@ function closeContactPopup() {
   contactAction = null;
 }
 
-// Vendor management functions (same as before)
-document.getElementById('vendor-form').addEventListener('submit', function(e) {
+// NEW: WhatsApp Support Function
+function openSupportWhatsApp() {
+  const message = "Hello, I need help with Lokonex app...";
+  window.open(`https://wa.me/918500172644?text=${encodeURIComponent(message)}`);
+}
+
+// FIXED: Improved form submission with better error handling
+document.getElementById('vendor-form').addEventListener('submit', async function(e) {
   e.preventDefault();
   const f = this.elements;
   
-  const approvedCount = vendors.filter(v => v.approved).length;
-  const isFree = approvedCount < 50;
+  // Basic validation first
+  if (!validateForm(f)) return;
+  
+  // Disable submit button to prevent double submission
+  const submitBtn = document.getElementById('submit-btn');
+  const originalText = submitBtn.innerHTML;
+  submitBtn.innerHTML = '<span class="loading-spinner"></span> Processing...';
+  submitBtn.disabled = true;
+  
+  try {
+    const approvedCount = vendors.filter(v => v.approved).length;
+    const isFree = approvedCount < 50;
+    const photoFile = f.photo.files[0];
+    
+    let photoData = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTUwIiBoZWlnaHQ9IjE1MCIgdmlld0JveD0iMCAwIDE1MCAxNTAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjE1MCIgaGVpZ2h0PSI1MCIgZmlsbD0iIzIwM2E0MyIvPjxjaXJjbGUgY3g9Ijc1IiBjeT0iNjAiIHI9IjIwIiBmaWxsPSIjZmZkNzAwIi8+PHBhdGggZD0iTTMwIDEyMFYxMTBDMzAgOTUgNDUgODUgNzUgODVDMTA1IDg1IDEyMCA5NSAxMjAgMTEwVjEyMCIgc3Ryb2tlPSIjZmZkNzAwIiBzdHJva2Utd2lkdGg9IjIiLz48L3N2Zz4=';
 
-  const photoFile = f.photo.files[0];
-  let photoData = 'https://via.placeholder.com/150/203a43/ffd700?text=Photo';
-
-  if (photoFile) {
-    const reader = new FileReader();
-    reader.onload = function(event) {
-      photoData = event.target.result;
-      saveVendor(photoData, f, isFree);
-    };
-    reader.readAsDataURL(photoFile);
-  } else {
+    if (photoFile) {
+      photoData = await fastCompressPhoto(photoFile, 50);
+    }
+    
     saveVendor(photoData, f, isFree);
+    
+  } catch (error) {
+    console.error('Form submission error:', error);
+    popup('Registration Issue', 'Please try again after some time. If problem continues, contact support at 8500172644');
+  } finally {
+    submitBtn.innerHTML = originalText;
+    submitBtn.disabled = false;
   }
 });
 
@@ -1221,9 +1506,6 @@ function showVendors(filteredVendors = null) {
       <div class="vendor-actions">
         <button class="glow-btn call-btn" onclick="contactVendor('call', '${v.mobile}')">Call</button>
         <button class="glow-btn whatsapp-btn" onclick="contactVendor('whatsapp', '${v.mobile}')">WhatsApp</button>
-        <button class="edit-btn" onclick="showEditForm(${v.id})">
-          <i class="fas fa-edit"></i> Edit
-        </button>
       </div>
     </div>
   `).join('');
@@ -1294,6 +1576,81 @@ function cancelEdit(vendorId) {
   }
   
   vendorBox.style.display = 'block';
+}
+
+// FIXED: Improved category filtering
+function filterByCategory(c) {
+  show('vendors');
+  
+  // Get approved and non-expired vendors
+  let filtered = vendors.filter(v => v.approved && !isExpired(v.regDate));
+  
+  if (c === 'Others') {
+    // Show vendors with services not in predefined categories (excluding "Others")
+    const mainCategories = CATEGORIES.filter(cat => cat !== 'Others');
+    filtered = filtered.filter(v => !mainCategories.includes(v.service));
+  } else {
+    // Show vendors from the selected category
+    filtered = filtered.filter(v => v.service === c);
+  }
+  
+  showVendors(filtered);
+  
+  // Show message if no vendors found
+  if (filtered.length === 0) {
+    const grid = document.getElementById('vendor-grid');
+    grid.innerHTML = '<p style="text-align:center;grid-column:1/-1;padding:2rem;color:#ffd700">No vendors found in ' + c + ' category</p>';
+  }
+}
+
+// FIXED: Improved search functionality with auto-search
+function debouncedGlobalSearch() {
+  clearTimeout(searchTimeout);
+  searchTimeout = setTimeout(() => {
+    optimizedGlobalSearch();
+  }, 500);
+}
+
+function debouncedVendorSearch() {
+  clearTimeout(searchTimeout);
+  searchTimeout = setTimeout(() => {
+    optimizedFilterVendors();
+  }, 500);
+}
+
+function optimizedGlobalSearch() {
+  const q = document.getElementById('global-search').value.toLowerCase().trim();
+  
+  if (q.length < 2) {
+    showVendors();
+    return;
+  }
+  
+  const results = vendors.filter(v => v.approved && !isExpired(v.regDate) && 
+    (v.name.toLowerCase().includes(q) || 
+     v.service.toLowerCase().includes(q) || 
+     v.location.toLowerCase().includes(q) ||
+     v.description.toLowerCase().includes(q)));
+  
+  show('vendors'); 
+  showVendors(results);
+}
+
+function optimizedFilterVendors() {
+  const q = document.getElementById('vendor-search').value.toLowerCase().trim();
+  
+  if (q.length < 2) {
+    showVendors();
+    return;
+  }
+  
+  const results = vendors.filter(v => v.approved && !isExpired(v.regDate) && 
+    (v.name.toLowerCase().includes(q) || 
+     v.service.toLowerCase().includes(q) || 
+     v.location.toLowerCase().includes(q) ||
+     v.description.toLowerCase().includes(q)));
+  
+  showVendors(results);
 }
 
 // ==================== FIXED ADMIN LOGIN (REMOVED POPUP) ====================
@@ -1468,22 +1825,6 @@ function deleteCategory(category) {
   }
 }
 
-// ==================== FIXED CATEGORY FILTERING ====================
-function filterByCategory(c) {
-  show('vendors');
-  let filtered = vendors.filter(v => v.approved && !isExpired(v.regDate));
-  
-  if (c === 'Others') {
-    // Show vendors with custom services (not in predefined categories)
-    filtered = filtered.filter(v => !CATEGORIES.includes(v.service));
-  } else {
-    // Show vendors from the selected category
-    filtered = filtered.filter(v => v.service === c);
-  }
-  
-  showVendors(filtered);
-}
-
 // Search functions (same as before)
 function debounceSearch(func, delay = 300) {
   return function(...args) {
@@ -1491,39 +1832,6 @@ function debounceSearch(func, delay = 300) {
     searchTimeout = setTimeout(() => func.apply(this, args), delay);
   };
 }
-
-const optimizedGlobalSearch = debounceSearch(function() {
-  const q = document.getElementById('global-search').value.toLowerCase().trim();
-  if (q.length < 2) {
-    showVendors();
-    return;
-  }
-  
-  const results = vendors.filter(v => v.approved && !isExpired(v.regDate) && 
-    (v.name.toLowerCase().includes(q) || 
-     v.service.toLowerCase().includes(q) || 
-     v.location.toLowerCase().includes(q) ||
-     v.description.toLowerCase().includes(q)));
-  
-  show('vendors'); 
-  showVendors(results);
-});
-
-const optimizedFilterVendors = debounceSearch(function() {
-  const q = document.getElementById('vendor-search').value.toLowerCase().trim();
-  if (q.length < 2) {
-    showVendors();
-    return;
-  }
-  
-  const results = vendors.filter(v => v.approved && !isExpired(v.regDate) && 
-    (v.name.toLowerCase().includes(q) || 
-     v.service.toLowerCase().includes(q) || 
-     v.location.toLowerCase().includes(q) ||
-     v.description.toLowerCase().includes(q)));
-  
-  showVendors(results);
-});
 
 // Storage functions
 function saveCategories() {
@@ -1608,6 +1916,7 @@ function oneClickRestore() {
 }
 
 // Share function
+
 function shareApp() {
   if (navigator.share) {
     navigator.share({
@@ -1628,7 +1937,13 @@ function shareApp() {
 }
 
 // Initialize
+// Initialize
+// Force refresh categories on page load
 window.onload = async () => {
+  // Check for updates first
+  checkForUpdates();
+  
+  // Force update categories display
   updateCategoriesDisplay();
   updateFreeSlots();
   
@@ -1704,6 +2019,89 @@ installBtn.addEventListener('click', async () => {
   }
 });
 
+// ==================== FAST PHOTO COMPRESSION ====================
+function fastCompressPhoto(file, maxSizeKB = 50) {
+  return new Promise((resolve, reject) => {
+    if (file.size <= maxSizeKB * 1024) {
+      const reader = new FileReader();
+      reader.onload = (e) => resolve(e.target.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+      return;
+    }
+
+    const img = new Image();
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    img.onload = function() {
+      let width = img.width;
+      let height = img.height;
+      const maxDimension = 400;
+      
+      if (width > height) {
+        if (width > maxDimension) {
+          height = (height * maxDimension) / width;
+          width = maxDimension;
+        }
+      } else {
+        if (height > maxDimension) {
+          width = (width * maxDimension) / height;
+          height = maxDimension;
+        }
+      }
+      
+      canvas.width = width;
+      canvas.height = height;
+      ctx.drawImage(img, 0, 0, width, height);
+      const compressedDataURL = canvas.toDataURL('image/jpeg', 0.6);
+      resolve(compressedDataURL);
+    };
+    
+    img.onerror = () => {
+      const reader = new FileReader();
+      reader.onload = (e) => resolve(e.target.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    };
+    
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+// Quick validation function
+function validateForm(f) {
+  if (!f.name.value.trim()) {
+    popup('Error', 'Please enter your full name');
+    return false;
+  }
+  if (!f.mobile.value.trim() || f.mobile.value.trim().length < 10) {
+    popup('Error', 'Please enter a valid mobile number');
+    return false;
+  }
+  if (!f.service.value) {
+    popup('Error', 'Please select a service category');
+    return false;
+  }
+  if (f.service.value === 'Others' && !f.custom_service.value.trim()) {
+    popup('Error', 'Please enter your service');
+    return false;
+  }
+  if (!f.area.value.trim()) {
+    popup('Error', 'Please enter your area');
+    return false;
+  }
+  if (!f.exp.value || f.exp.value < 0) {
+    popup('Error', 'Please enter valid experience');
+    return false;
+  }
+  if (!f.desc.value.trim()) {
+    popup('Error', 'Please enter service description');
+    return false;
+  }
+  return true;
+}
+
 function showToast(message) {
   toast.textContent = message;
   toast.style.visibility = 'visible';
@@ -1724,7 +2122,6 @@ window.addEventListener('appinstalled', () => {
   installBtn.style.display = 'none';
   showToast('App Installed Successfully!');
 });
-
 
 // ==================== TEST FUNCTIONS ====================
 function testDeleteFirstVendor() {
