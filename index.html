@@ -1371,19 +1371,14 @@ function proceedToContact() {
 function closeContactPopup() {
   document.getElementById('contact-popup').classList.remove('show');
   contactAction = null;
-}
-
+} 
 // ==================== END MISSING FUNCTIONS ====================
-<script>
-
   function showVendors(filteredVendors = null) {
     // ✅ ADD THIS LINE FOR EMERGENCY MODE
   console.log("🔄 EMERGENCY: Displaying vendors...");
   const grid = document.getElementById('vendor-grid');
   if (!grid) return;
-  
   let approvedVendors = filteredVendors || vendors.filter(v => v.approved && !isExpired(v.regDate));
-  
   console.log("🔄 Displaying vendors:", approvedVendors.length);
   
   if (approvedVendors.length === 0) {
