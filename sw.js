@@ -1,63 +1,42 @@
-// ---------------------- Service Worker ----------------------
+// FIXED SERVICE WORKER - With Auto Updates
+const CACHE_NAME = 'lokonex-v4'; // ✅ FIXED: Constant name
 
-// Unique cache to force auto-update
-const CACHE_NAME = "lokonex-v-" + Date.now();
-
+// ONLY cache essential files
 const urlsToCache = [
-  "./",
-  "./index.html",
-  "./manifest.json",
-  "./icon-192.png",
-  "./icon-512.png",
+  '/',
+  '/index.html'
 ];
 
-// INSTALL — cache files immediately
-self.addEventListener("install", (event) => {
-  self.skipWaiting(); // activate SW immediately
+// Install - cache basic files
+self.addEventListener('install', event => {
+  self.skipWaiting(); // ✅ Take control immediately
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(urlsToCache))
+    caches.open(CACHE_NAME)
+      .then(cache => cache.addAll(urlsToCache))
   );
 });
 
-// ACTIVATE — delete old caches
-self.addEventListener("activate", (event) => {
+// Activate - delete old caches
+self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(
-        keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
-      )
-    )
-  );
-  self.clients.claim(); // take control immediately
-});
-
-// FETCH — network-first for HTML, network-first with cache fallback for other requests
-self.addEventListener("fetch", (event) => {
-  if (event.request.mode === "navigate") {
-    // Always fetch latest index.html
-    event.respondWith(
-      fetch(event.request, { cache: "no-store" })
-        .then((response) => response)
-        .catch(() => caches.match("./index.html"))
-    );
-  } else {
-    // Other requests: network-first, fallback to cache
-    event.respondWith(
-      fetch(event.request)
-        .then((response) => {
-          if (!response || response.status !== 200) {
-            return caches.match(event.request);
+    caches.keys().then(cacheNames => {
+      return Promise.all(
+        cacheNames.map(cacheName => {
+          if (cacheName !== CACHE_NAME) {
+            console.log('Deleting old cache:', cacheName);
+            return caches.delete(cacheName); // ✅ Clear old versions
           }
-          return response;
         })
-        .catch(() => caches.match(event.request))
-    );
-  }
+      );
+    })
+  );
+  self.clients.claim(); // ✅ Take control of all tabs
 });
 
-// Listen for skipWaiting message from page
-self.addEventListener("message", (event) => {
-  if (event.data.action === "skipWaiting") {
-    self.skipWaiting();
-  }
+// Fetch - NETWORK FIRST (always fresh content)
+self.addEventListener('fetch', event => {
+  event.respondWith(
+    fetch(event.request) // ✅ Always try network first
+      .catch(() => caches.match(event.request))
+  );
 });
