@@ -1170,6 +1170,62 @@ window.saveV = saveVendorsEmergency;
 
 // ==================== 🚨 END EMERGENCY OPTIMIZATION ====================
   // ==================== MISSING FUNCTIONS - ADD TO EMERGENCY CODE ====================
+  // ✅ ADD CORRECTED showVendors FUNCTION HERE
+function showVendors(filteredVendors = null) {
+  console.log("🔄 Displaying vendors...");
+  
+  const grid = document.getElementById('vendor-grid');
+  if (!grid) {
+    console.log("❌ Vendor grid not found");
+    return;
+  }
+  
+  // Handle both array and object formats
+  let approvedVendors = filteredVendors || vendors;
+  
+  // Convert object to array if needed
+  if (approvedVendors && typeof approvedVendors === 'object' && !Array.isArray(approvedVendors)) {
+    approvedVendors = Object.values(approvedVendors);
+  }
+  
+  // Ensure it's an array
+  if (!Array.isArray(approvedVendors)) {
+    approvedVendors = [];
+  }
+  
+  console.log("Vendors to display:", approvedVendors.length);
+  
+  if (approvedVendors.length === 0) {
+    grid.innerHTML = '<p style="text-align:center;padding:2rem;color:#ffd700">No vendors available</p>';
+    return;
+  }
+  
+  const defaultPhoto = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTUwIiBoZWlnaHQ9IjE1MCIgdmlld0JveD0iMCAwIDE1MCAxNTAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjE1MCIgaGVpZ2h0PSI1MCIgZmlsbD0iIzIwM2E0MyIvPjxjaXJjbGUgY3g9Ijc1IiBjeT0iNjAiIHI9IjIwIiBmaWxsPSIjZmZkNzAwIi8+PHBhdGggZD0iTTMwIDEyMFYxMTBDMzAgOTUgNDUgODUgNzUgODVDMTA1IDg1IDEyMCA5NSAxMjAgMTEwVjEyMCIgc3Ryb2tlPSIjZmZkNzAwIiBzdHJva2Utd2lkdGg9IjIiLz48L3N2Zz4=';
+  
+  grid.innerHTML = approvedVendors.map(v => `
+    <div class="vendor-box" data-id="${v.id}">
+      <div class="vendor-header">
+        <img src="${v.photo || defaultPhoto}" class="vendor-img">
+        <div class="vendor-info">
+          <h3>${v.name}</h3>
+          <p style="color:#ffd700;font-weight:500">${v.service}</p>
+        </div>
+      </div>
+      <div class="vendor-details">
+        <div class="vendor-detail"><i class="fas fa-phone"></i><span>${v.mobile}</span></div>
+        <div class="vendor-detail"><i class="fas fa-map-marker-alt"></i><span>${v.location}</span></div>
+        <div class="vendor-detail"><i class="fas fa-briefcase"></i><span>${v.experience} years experience</span></div>
+        <div class="vendor-detail"><i class="fas fa-info-circle"></i><span>${v.description}</span></div>
+      </div>
+      <div class="vendor-actions">
+        <button class="glow-btn call-btn" onclick="contactVendor('call', '${v.mobile}')">Call</button>
+        <button class="glow-btn whatsapp-btn" onclick="contactVendor('whatsapp', '${v.mobile}')">WhatsApp</button>
+      </div>
+    </div>
+  `).join('');
+  
+  console.log("🎉 Vendors displayed successfully!");
+}
 
 // Add isExpired function
 function isExpired(d) {
