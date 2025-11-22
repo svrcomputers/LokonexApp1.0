@@ -15,6 +15,46 @@
 <meta http-equiv="Pragma" content="no-cache" />
 <meta http-equiv="Expires" content="0" />
 
+<script>
+  // MOBILE DATA LOAD FIX
+  function mobileDataLoader() {
+    console.log("📱 Mobile data loader started");
+    
+    if (!window.vendors || window.vendors.length === 0) {
+      console.log("🔄 No vendors found, loading from Firebase...");
+      
+      fetch('https://local-market2025-default-rtdb.asia-southeast1.firebasedatabase.app/vendors.json')
+        .then(r => r.json())
+        .then(data => {
+          const vendorsArray = Object.values(data || {});
+          window.vendors = vendorsArray.map(v => ({...v, approved: true}));
+          localStorage.setItem('vendors_v2', JSON.stringify(window.vendors));
+          console.log("✅ Mobile data saved:", window.vendors.length);
+          
+          setTimeout(() => {
+            if (typeof showVendors === 'function') showVendors();
+          }, 2000);
+        })
+        .catch(err => console.error("❌ Mobile fetch failed:", err));
+    } else {
+      setTimeout(() => {
+        if (typeof showVendors === 'function') showVendors();
+      }, 1000);
+    }
+  }
+
+  // Run on mobile
+  if (/Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', mobileDataLoader);
+    } else {
+      mobileDataLoader();
+    }
+    setTimeout(mobileDataLoader, 5000);
+  }
+  </script>
+  <!-- ✅ END MOBILE DATA LOADER -->
+  
 <style>
 /* All your existing CSS remains exactly the same */
 *{margin:0;padding:0;box-sizing:border-box}
@@ -519,6 +559,23 @@ html {
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+  /* ✅ ADD MOBILE CSS HERE - AT THE END OF STYLE TAG */
+@media (max-width: 768px) {
+  #vendor-grid {
+    display: block !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+  
+  .vendor-box {
+    display: block !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    margin-bottom: 1rem;
+  }
+}
+/* ✅ END MOBILE CSS */
 </style>
 
 </head>
