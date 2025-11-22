@@ -1167,6 +1167,40 @@ initializeFirebaseEmergency();
 // Replace original functions
 window.show = showEmergency;
 window.saveV = saveVendorsEmergency;
+  // ==================== ESSENTIAL show FUNCTION ====================
+function show(p) {
+  console.log("🎯 Showing page:", p);
+  
+  // Hide all pages
+  document.querySelectorAll('.page').forEach(x => x.classList.remove('active'));
+  
+  // Show selected page
+  const page = document.getElementById(p);
+  if (page) {
+    page.classList.add('active');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    
+    // Handle specific pages
+    if (p === 'vendors') {
+      console.log("🔄 Loading vendors page...");
+      setTimeout(() => {
+        if (typeof showVendors === 'function') {
+          showVendors();
+        }
+      }, 500);
+    }
+    
+    if (p === 'admin') {
+      if (typeof showDashboard === 'function') showDashboard();
+    }
+    
+    if (p === 'register') {
+      const form = document.getElementById('vendor-form');
+      if (form) form.reset();
+    }
+  }
+}
+// ==================== END show FUNCTION ====================
 
 // ==================== 🚨 END EMERGENCY OPTIMIZATION ====================
   // ==================== MISSING FUNCTIONS - ADD TO EMERGENCY CODE ====================
