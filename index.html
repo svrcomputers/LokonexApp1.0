@@ -15,45 +15,65 @@
 <meta http-equiv="Pragma" content="no-cache" />
 <meta http-equiv="Expires" content="0" />
 
-<script>
-  // MOBILE DATA LOAD FIX
-  function mobileDataLoader() {
-    console.log("📱 Mobile data loader started");
-    
-    if (!window.vendors || window.vendors.length === 0) {
-      console.log("🔄 No vendors found, loading from Firebase...");
-      
-      fetch('https://local-market2025-default-rtdb.asia-southeast1.firebasedatabase.app/vendors.json')
-        .then(r => r.json())
-        .then(data => {
-          const vendorsArray = Object.values(data || {});
-          window.vendors = vendorsArray.map(v => ({...v, approved: true}));
-          localStorage.setItem('vendors_v2', JSON.stringify(window.vendors));
-          console.log("✅ Mobile data saved:", window.vendors.length);
-          
-          setTimeout(() => {
-            if (typeof showVendors === 'function') showVendors();
-          }, 2000);
-        })
-        .catch(err => console.error("❌ Mobile fetch failed:", err));
-    } else {
-      setTimeout(() => {
-        if (typeof showVendors === 'function') showVendors();
-      }, 1000);
-    }
-  }
 
-  // Run on mobile
-  if (/Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', mobileDataLoader);
-    } else {
-      mobileDataLoader();
-    }
-    setTimeout(mobileDataLoader, 5000);
+<!-- ✅ ENHANCED MOBILE DATA LOADER - REPLACE WITH THIS -->
+<script>
+// ENHANCED MOBILE DATA LOAD FIX
+function enhancedMobileLoader() {
+  console.log("📱 ENHANCED Mobile loader started");
+  
+  // Multiple fallback attempts
+  setTimeout(loadMobileVendors, 1000);   // Try after 1 sec
+  setTimeout(loadMobileVendors, 3000);   // Try after 3 sec  
+  setTimeout(loadMobileVendors, 5000);   // Try after 5 sec
+  setTimeout(loadMobileVendors, 10000);  // Try after 10 sec
+}
+
+function loadMobileVendors() {
+  console.log("🔄 Loading mobile vendors...");
+  
+  // Check if already loaded
+  if (window.vendors && window.vendors.length > 0) {
+    console.log("✅ Vendors already loaded, displaying...");
+    if (typeof showVendors === 'function') showVendors();
+    return;
   }
-  </script>
-  <!-- ✅ END MOBILE DATA LOADER -->
+  
+  // Try Firebase first
+  fetch('https://local-market2025-default-rtdb.asia-southeast1.firebasedatabase.app/vendors.json')
+    .then(r => r.json())
+    .then(data => {
+      console.log("📦 Firebase data received");
+      const vendorsArray = Object.values(data || {});
+      window.vendors = vendorsArray.map(v => ({...v, approved: true}));
+      localStorage.setItem('vendors_v2', JSON.stringify(window.vendors));
+      console.log("✅ Mobile vendors loaded:", window.vendors.length);
+      
+      // Force display
+      if (typeof showVendors === 'function') {
+        showVendors();
+        console.log("🎉 Vendors displayed successfully!");
+      }
+    })
+    .catch(err => {
+      console.error("❌ Firebase failed, trying localStorage...");
+      // Fallback to localStorage
+      const stored = localStorage.getItem('vendors_v2');
+      if (stored) {
+        window.vendors = JSON.parse(stored);
+        console.log("📦 Loaded from storage:", window.vendors.length);
+        if (typeof showVendors === 'function') showVendors();
+      }
+    });
+}
+
+// Run enhanced loader on mobile
+if (/Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+  console.log("📱 Mobile device detected - starting enhanced loader");
+  enhancedMobileLoader();
+}
+</script>
+<!-- ✅ END ENHANCED MOBILE DATA LOADER -->
   
 <style>
 /* All your existing CSS remains exactly the same */
@@ -2263,5 +2283,25 @@ navigator.serviceWorker?.ready.then(registration => {
   registration.update();
 });
 </script>
+
+  <script>
+// FINAL ATTEMPT - Run when everything is loaded
+window.addEventListener('load', function() {
+  console.log("🎯 Page fully loaded - final vendor check");
+  
+  // Wait a bit more then check
+  setTimeout(function() {
+    if (window.vendors && window.vendors.length > 0) {
+      console.log("✅ Final check - vendors loaded:", window.vendors.length);
+      if (typeof showVendors === 'function') showVendors();
+    } else {
+      console.log("❌ Final check - no vendors, forcing load...");
+      loadMobileVendors();
+    }
+  }, 3000);
+});
+</script>
+
+</body>
 </body>
 </html>
