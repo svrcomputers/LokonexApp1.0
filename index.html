@@ -2173,6 +2173,38 @@ function findApprovedVendors() {
 }
 // ==================== END TEST FUNCTIONS ====================
 </script>
+<script>
+// Auto-update notification
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    console.log('New version available! Reloading...');
+    showUpdateNotification();
+  });
+}
 
+function showUpdateNotification() {
+  if (document.getElementById('update-notification')) return;
+  
+  const notification = document.createElement('div');
+  notification.id = 'update-notification';
+  notification.innerHTML = `
+    <div style="position:fixed; top:70px; right:20px; background:#25d366; color:white; padding:15px; border-radius:10px; z-index:9999; box-shadow:0 4px 12px rgba(0,0,0,0.3); max-width:300px;">
+      <strong>🔄 Update Available!</strong><br>
+      <small>New features available. Reload to get the latest version.</small><br>
+      <button onclick="location.reload()" style="background:white; color:#25d366; border:none; padding:8px 15px; border-radius:5px; margin-top:8px; cursor:pointer; font-weight:bold">Reload Now</button>
+    </div>
+  `;
+  document.body.appendChild(notification);
+  
+  setTimeout(() => {
+    if (notification.parentNode) notification.remove();
+  }, 15000);
+}
+
+// Check for updates on page load
+navigator.serviceWorker?.ready.then(registration => {
+  registration.update();
+});
+</script>
 </body>
 </html>
