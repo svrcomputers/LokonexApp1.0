@@ -1169,6 +1169,50 @@ window.show = showEmergency;
 window.saveV = saveVendorsEmergency;
 
 // ==================== 🚨 END EMERGENCY OPTIMIZATION ====================
+  // ==================== MISSING FUNCTIONS - ADD TO EMERGENCY CODE ====================
+
+// Add isExpired function
+function isExpired(d) {
+  if (!d) return true;
+  try {
+    const [dd,mm,yy] = d.split('/');
+    const reg = new Date(yy, mm-1, dd);
+    const exp = new Date(reg); 
+    exp.setFullYear(reg.getFullYear() + 1);
+    return new Date() > exp;
+  } catch (e) {
+    return false;
+  }
+}
+
+// Add contactVendor function  
+function contactVendor(action, mobile) {
+  if (action === 'call') {
+    location.href = `tel:${mobile}`;
+  } else if (action === 'whatsapp') {
+    window.open(`https://wa.me/91${mobile}`);
+  }
+}
+
+// Add proceedToContact function
+function proceedToContact() {
+  if (contactAction) {
+    if (contactAction.action === 'call') {
+      location.href = `tel:${contactAction.mobile}`;
+    } else if (contactAction.action === 'whatsapp') {
+      window.open(`https://wa.me/91${contactAction.mobile}`);
+    }
+  }
+  closeContactPopup();
+}
+
+// Add closeContactPopup function
+function closeContactPopup() {
+  document.getElementById('contact-popup').classList.remove('show');
+  contactAction = null;
+}
+
+// ==================== END MISSING FUNCTIONS ====================
 <script>
 
   function showVendors(filteredVendors = null) {
