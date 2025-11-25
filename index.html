@@ -1024,7 +1024,7 @@ function setupOptimizedRealtimeSync() {
         if (firebaseVendors && Array.isArray(firebaseVendors)) {
           if (JSON.stringify(vendors) !== JSON.stringify(firebaseVendors)) {
             vendors = firebaseVendors;
-            localStorage.setItem('vendors_v2', JSON.stringify(vendors));
+            
             console.log("📱 Loaded vendors from Firebase:", vendors.length);
             showVendors();
             updateFreeSlots();
@@ -1336,7 +1336,7 @@ function saveVendor(photoData, f, isFree) {
   };
 
   vendors.push(vendor);
-  localStorage.setItem('vendors_v2', JSON.stringify(vendors));
+  
   
   // Use optimized Firebase save
   saveVendorsToFirebaseOptimized().then(() => {
@@ -1357,13 +1357,11 @@ function saveVendor(photoData, f, isFree) {
 }
 
 function saveV() { 
-  localStorage.setItem('vendors_v2', JSON.stringify(vendors));
-  
-  // Use optimized Firebase save
   if (FIREBASE_ENABLED) {
     saveVendorsToFirebaseOptimized();
   }
 }
+
 
 // ==================== REMAINING FUNCTIONS (SAME AS BEFORE) ====================
 
