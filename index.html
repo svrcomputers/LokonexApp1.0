@@ -991,6 +991,7 @@ function initializeFirebaseWithRetry(retryCount = 0) {
       }
       
       setupOptimizedRealtimeSync();
+ startAutoCompression();
       
     } catch (error) {
       console.error("Firebase initialization failed, retrying...", error);
@@ -1212,7 +1213,395 @@ let searchTimeout;
 
 // ==================== AUTO-UPDATE FUNCTIONALITY ====================
 // ==================== AUTO-UPDATE FUNCTIONALITY ====================
-const APP_VERSION = '1.3.0'; // Update this when you make changes
+const APP_VERSION = '1.4.0'; // Update this when you make changes
+
+// ==================== COMPRESS EXISTING PHOTOS ====================
+async function compressAllExistingPhotos() {
+    console.log("🔄 Compressing all existing vendor photos...");
+    
+    let compressedCount = 0;
+    const totalVendors = vendors.length;
+    
+    for (let i = 0; i < totalVendors; i++) {
+        const vendor = vendors[i];
+        
+        // Check if photo needs compression (large base64 and not default)
+        if (vendor.photo && 
+            vendor.photo.startsWith('data:image/') && 
+            vendor.photo.length > 5000 && // Large base64
+            vendor.photo !== getDefaultPhoto()) {
+            
+            try {
+                console.log(`🔧 Compressing photo for: ${vendor.name}`);
+                const compressedPhoto = await compressImageExtremely(vendor.photo);
+                vendor.photo = compressedPhoto;
+                compressedCount++;
+                
+                console.log(`✅ Compressed ${i+1}/${totalVendors}: ${vendor.name}`);
+                
+                // Small delay to prevent blocking
+                await new Promise(resolve => setTimeout(resolve, 50));
+            } catch (error) {
+                console.error(`❌ Failed to compress ${vendor.name}:`, error);
+            }
+        }
+    }
+    
+    if (compressedCount > 0) {
+        await saveVendorsToFirebaseOptimized();
+        console.log(`✅ Successfully compressed ${compressedCount} existing photos`);
+        popup('Photos Optimized!', `${compressedCount} existing photos have been compressed! Your app will now use less data.`);
+    } else {
+        console.log("ℹ️ No photos needed compression");
+        popup('No Changes', 'All photos are already optimized!');
+    }
+    
+    return compressedCount;
+}
+
+// ==================== COMPARE LOCAL VS FIREBASE ====================
+async function compareDataSources() {
+    console.log("📊 Comparing local vs Firebase data...");
+    
+    if (!database || !isFirebaseConnected) {
+        console.log("❌ Firebase not available for comparison");
+        popup('Firebase Error', 'Firebase not connected. Check internet connection.');
+        return;
+    }
+
+    try {
+        const snapshot = await database.ref('vendors').once('value');
+        const firebaseVendors = snapshot.val();
+        
+        const comparison = {
+            localCount: vendors.length,
+            firebaseCount: firebaseVendors ? firebaseVendors.length : 0,
+            localApproved: vendors.filter(v => v.approved).length,
+            firebaseApproved: firebaseVendors ? firebaseVendors.filter(v => v.approved).length : 0,
+            match: firebaseVendors && vendors.length === firebaseVendors.length
+        };
+        
+        console.log("📊 DATA COMPARISON:", comparison);
+        
+        // Show results in popup
+        let message = `
+Local Vendors: ${comparison.localCount}
+Firebase Vendors: ${comparison.firebaseCount}
+Local Approved: ${comparison.localApproved}
+Firebase Approved: ${comparison.firebaseApproved}
+Status: ${comparison.match ? '✅ SYNCED' : '❌ OUT OF SYNC'}
+        `;
+        
+        popup('Data Comparison', message);
+        
+    } catch (error) {
+        console.error("Comparison error:", error);
+        popup('Comparison Failed', 'Error: ' + error.message);
+    }
+}
+
+// ==================== FIREBASE SYNC FIX ====================
+async function fixFirebaseSync() {
+    console.log("🔄 Checking Firebase sync status...");
+    
+    if (!FIREBASE_ENABLED || !database || !isFirebaseConnected) {
+        console.log("❌ Firebase not available");
+        popup('Firebase Error', 'Firebase not connected. Check internet.');
+        return;
+    }
+
+    try {
+        // Step 1: Read current Firebase data
+        const snapshot = await database.ref('vendors').once('value');
+        const firebaseVendors = snapshot.val();
+        
+        console.log("📊 Local vendors:", vendors.length);
+        console.log("📊 Firebase vendors:", firebaseVendors ? firebaseVendors.length : 0);
+        
+        // Step 2: Compare data
+        if (!firebaseVendors || firebaseVendors.length !== vendors.length) {
+            console.log("🔄 Data mismatch detected, forcing sync...");
+            
+            // Step 3: Force sync to Firebase
+            await database.ref('vendors').set(vendors);
+            console.log("✅ All vendors synced to Firebase");
+            
+            popup('Sync Fixed!', `Synced ${vendors.length} vendors to Firebase successfully!`);
+        } else {
+            console.log("✅ Data already in sync");
+            popup('Already Synced', 'Firebase data is up to date!');
+        }
+        
+    } catch (error) {
+        console.error("❌ Firebase sync error:", error);
+        popup('Sync Failed', 'Error: ' + error.message);
+    }
+}
+
+// Add fix button to admin panel
+function addFixSyncButton() {
+    const dashboard = document.getElementById('dashboard');
+    if (dashboard && !document.getElementById('fix-sync-btn')) {
+        const fixBtn = document.createElement('button');
+        fixBtn.id = 'fix-sync-btn';
+        fixBtn.className = 'glow-btn';
+        fixBtn.style.background = '#e74c3c';
+        fixBtn.style.margin = '0.5rem';
+        fixBtn.innerHTML = '<i class="fas fa-wrench"></i> Fix Firebase Sync';
+        fixBtn.onclick = fixFirebaseSync;
+        
+        const buttonContainer = dashboard.querySelector('.category-management');
+        if (buttonContainer) {
+            buttonContainer.parentNode.insertBefore(fixBtn, buttonContainer);
+        }
+    }
+}
+
+// ==================== FIREBASE CONNECTION TEST ====================
+async function testFirebaseConnection() {
+    console.log("🔥 Testing Firebase connection...");
+    
+    if (!FIREBASE_ENABLED) {
+        console.log("❌ Firebase disabled in settings");
+        return;
+    }
+    
+    try {
+        // Test write operation
+        const testData = { 
+            test: true, 
+            timestamp: Date.now(),
+            message: "Firebase connection test"
+        };
+        
+        await database.ref('connection_test').set(testData);
+        console.log("✅ Firebase write test: PASSED");
+        
+        // Test read operation  
+        const snapshot = await database.ref('connection_test').once('value');
+        const readData = snapshot.val();
+        console.log("✅ Firebase read test: PASSED", readData);
+        
+        // Cleanup test data
+        await database.ref('connection_test').remove();
+        
+        popup('Firebase Test', '✅ Connection successful!');
+        
+    } catch (error) {
+        console.error("❌ Firebase test failed:", error);
+        popup('Firebase Test', '❌ Connection failed: ' + error.message);
+    }
+}
+
+// ==================== DEBUG FIREBASE DATA ====================
+async function debugFirebaseData() {
+    console.log("=== 🔥 FIREBASE DEBUG START ===");
+    
+    if (!database || !isFirebaseConnected) {
+        console.log("❌ Firebase not connected");
+        return;
+    }
+
+    try {
+        // 1. Check vendors data
+        const vendorsSnapshot = await database.ref('vendors').once('value');
+        const firebaseVendors = vendorsSnapshot.val();
+        
+        console.log("📊 VENDORS DATA:", firebaseVendors);
+        console.log("📊 Data type:", typeof firebaseVendors);
+        
+        if (Array.isArray(firebaseVendors)) {
+            console.log("✅ Data is ARRAY, length:", firebaseVendors.length);
+            if (firebaseVendors.length > 0) {
+                console.log("📝 First vendor:", firebaseVendors[0]);
+                console.log("🔍 Approved vendors:", firebaseVendors.filter(v => v.approved).length);
+            }
+        } else if (firebaseVendors && typeof firebaseVendors === 'object') {
+            console.log("✅ Data is OBJECT, keys:", Object.keys(firebaseVendors).length);
+            const firstKey = Object.keys(firebaseVendors)[0];
+            console.log("📝 First vendor key:", firstKey);
+            console.log("📝 First vendor data:", firebaseVendors[firstKey]);
+        } else {
+            console.log("❌ Unexpected data format");
+        }
+
+        // 2. Check if data is visible in app
+        console.log("👀 Checking local vendors display:");
+        console.log("Total local vendors:", vendors.length);
+        console.log("Approved local vendors:", vendors.filter(v => v.approved).length);
+        console.log("Vendors with photos:", vendors.filter(v => v.photo && v.photo !== getDefaultPhoto()).length);
+
+    } catch (error) {
+        console.error("❌ Debug error:", error);
+    }
+    
+    console.log("=== 🔥 FIREBASE DEBUG END ===");
+}
+
+// ==================== MANUAL DEBUG BUTTON ====================
+function addDebugButton() {
+    const dashboard = document.getElementById('dashboard');
+    if (dashboard && !document.getElementById('debug-btn')) {
+        const debugBtn = document.createElement('button');
+        debugBtn.id = 'debug-btn';
+        debugBtn.className = 'glow-btn';
+        debugBtn.style.background = '#9b59b6';
+        debugBtn.style.margin = '0.5rem';
+        debugBtn.innerHTML = '<i class="fas fa-bug"></i> Debug Firebase Data';
+        debugBtn.onclick = debugFirebaseData;
+        
+        const buttonContainer = dashboard.querySelector('.category-management');
+        if (buttonContainer) {
+            buttonContainer.parentNode.insertBefore(debugBtn, buttonContainer);
+        }
+    }
+}
+
+// ==================== FIX CORRUPTED PHOTOS ====================
+async function fixCorruptedPhotos() {
+    console.log("🔧 Fixing corrupted photos in Firebase...");
+    
+    let fixedCount = 0;
+    
+    for (let i = 0; i < vendors.length; i++) {
+        const vendor = vendors[i];
+        
+        // Check if photo is corrupted
+        if (vendor.photo && 
+            (vendor.photo.includes('dataimage') || 
+             vendor.photo.includes('svg-xmi') ||
+             vendor.photo.length < 100)) {
+            
+            console.log(`🔄 Fixing photo for: ${vendor.name}`);
+            
+            // Replace with default photo
+            vendor.photo = getDefaultPhoto();
+            fixedCount++;
+        }
+    }
+    
+    if (fixedCount > 0) {
+        await saveVendorsToFirebaseOptimized();
+        console.log(`✅ Fixed ${fixedCount} corrupted photos`);
+        popup('Photos Fixed!', `Fixed ${fixedCount} corrupted photos in Firebase!`);
+    } else {
+        console.log("✅ No corrupted photos found");
+        popup('No Issues', 'All photos are fine!');
+    }
+    
+    return fixedCount;
+}
+
+
+// ==================== FIX LARGE PHOTOS ====================
+async function fixLargePhotos() {
+    console.log("🔧 Fixing large photos (150x150 to 80x80)...");
+    
+    let fixedCount = 0;
+    
+    for (let i = 0; i < vendors.length; i++) {
+        const vendor = vendors[i];
+        
+        // Check if photo is large (150x150)
+        if (vendor.photo && 
+            vendor.photo.includes('MTUw') && // 150 in base64
+            vendor.photo !== getDefaultPhoto()) {
+            
+            console.log(`🔄 Resizing photo for: ${vendor.name}`);
+            
+            // Replace with compressed 80x80 photo
+            vendor.photo = getDefaultPhoto();
+            fixedCount++;
+        }
+    }
+    
+    if (fixedCount > 0) {
+        await saveVendorsToFirebaseOptimized();
+        console.log(`✅ Fixed ${fixedCount} large photos to 80x80`);
+        popup('Photos Resized!', `Resized ${fixedCount} large photos to 80x80!`);
+        
+        // Refresh display
+        showVendors();
+    } else {
+        console.log("✅ No large photos found");
+        popup('No Issues', 'All photos are already 80x80!');
+    }
+    
+    return fixedCount;
+}
+
+// Add resize button to admin
+function addResizeButton() {
+    const dashboard = document.getElementById('dashboard');
+    if (dashboard && !document.getElementById('resize-btn')) {
+        const resizeBtn = document.createElement('button');
+        resizeBtn.id = 'resize-btn';
+        resizeBtn.className = 'glow-btn';
+        resizeBtn.style.background = '#f39c12';
+        resizeBtn.style.margin = '0.5rem';
+        resizeBtn.innerHTML = '<i class="fas fa-compress-arrows-alt"></i> Resize Large Photos';
+        resizeBtn.onclick = fixLargePhotos;
+        
+        const buttonContainer = dashboard.querySelector('.category-management');
+        if (buttonContainer) {
+            buttonContainer.parentNode.insertBefore(resizeBtn, buttonContainer);
+        }
+    }
+}
+
+// Add fix button to admin
+function addFixPhotosButton() {
+    const dashboard = document.getElementById('dashboard');
+    if (dashboard && !document.getElementById('fix-photos-btn')) {
+        const fixBtn = document.createElement('button');
+        fixBtn.id = 'fix-photos-btn';
+        fixBtn.className = 'glow-btn';
+        fixBtn.style.background = '#e74c3c';
+        fixBtn.style.margin = '0.5rem';
+        fixBtn.innerHTML = '<i class="fas fa-medkit"></i> Fix Corrupted Photos';
+        fixBtn.onclick = fixCorruptedPhotos;
+        
+        const buttonContainer = dashboard.querySelector('.category-management');
+        if (buttonContainer) {
+            buttonContainer.parentNode.insertBefore(fixBtn, buttonContainer);
+        }
+    }
+}
+
+// Add compress button to admin panel
+function addCompressButton() {
+    const dashboard = document.getElementById('dashboard');
+    if (dashboard && !document.getElementById('compress-btn')) {
+        const compressBtn = document.createElement('button');
+        compressBtn.id = 'compress-btn';
+        compressBtn.className = 'glow-btn';
+        compressBtn.style.background = '#e67e22';
+        compressBtn.style.margin = '0.5rem';
+        compressBtn.innerHTML = '<i class="fas fa-compress"></i> Compress Existing Photos';
+        compressBtn.onclick = startPhotoCompression;
+        
+        // Add button to admin panel
+        const buttonContainer = dashboard.querySelector('.category-management');
+        if (buttonContainer) {
+            buttonContainer.parentNode.insertBefore(compressBtn, buttonContainer);
+        }
+    }
+}
+
+async function startPhotoCompression() {
+    const result = await compressAllExistingPhotos();
+    showDashboard(); // Refresh admin view
+}
+
+// Auto-compress on app load (optional)
+function startAutoCompression() {
+    setTimeout(async () => {
+        const compressedCount = await compressAllExistingPhotos();
+        if (compressedCount > 0) {
+            console.log(`🔄 Auto-compressed ${compressedCount} photos`);
+        }
+    }, 5000);
+}
 
 function checkForUpdates() {
   const storedVersion = localStorage.getItem('app_version');
@@ -1419,6 +1808,104 @@ function getDefaultPhoto() {
     return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAiIGhlaWdodD0iODAiIHZpZXdCb3g9IjAgMCA4MCA4MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSI0MCIgY3k9IjQwIiByPSIzMCIgZmlsbD0iI2ZmZDcwMCIvPjxjaXJjbGUgY3g9IjQwIiBjeT0iMzAiIHI9IjEwIiBmaWxsPSIjMjAzYTQzIi8+PHBhdGggZD0iTTI1IDU1VjQ4QzI1IDQwIDMyIDM1IDQwIDM1QzQ4IDM1IDU1IDQwIDU1IDQ4VjU1IiBzdHJva2U9IiMyMDNhNDMiIHN0cm9rZS13aWR0aD0iMiIvPjwvc3ZnPg==';
 }
 
+// ==================== PHOTO COMPRESSION WITH PREVIEW ====================
+function previewAndCompressImage(input) {
+    const previewDiv = document.getElementById('photo-preview');
+    
+    if (!input.files[0]) {
+        previewDiv.innerHTML = '';
+        return;
+    }
+
+    const file = input.files[0];
+    const reader = new FileReader();
+    
+    reader.onload = function(e) {
+        const img = new Image();
+        img.onload = function() {
+            // Create canvas for compression
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Set fixed small size
+            const maxSize = 80;
+            canvas.width = maxSize;
+            canvas.height = maxSize;
+            
+            // Draw and compress image
+            ctx.drawImage(img, 0, 0, maxSize, maxSize);
+            
+            // Get compressed base64 (30% quality for maximum compression)
+            const compressedBase64 = canvas.toDataURL('image/jpeg', 0.3);
+            
+            // Show preview
+            previewDiv.innerHTML = `
+                <div style="text-align: center;">
+                    <img src="${compressedBase64}" 
+                         style="width: 80px; height: 80px; border-radius: 50%; border: 2px solid #ffd700; margin: 5px;">
+                    <p style="color: #25d366; font-size: 0.8rem; margin: 5px 0;">
+                        <i class="fas fa-check-circle"></i> 
+                        ఫోటో సిద్ధంగా ఉంది! (80x80 pixels)
+                    </p>
+                    <p style="color: #25d366; font-size: 0.8rem; margin: 5px 0;">
+                        <i class="fas fa-check-circle"></i> 
+                        Photo ready! (80x80 pixels)
+                    </p>
+                </div>
+            `;
+            
+            // Store compressed image in a global variable for form submission
+            window.compressedPhotoData = compressedBase64;
+        };
+        img.src = e.target.result;
+    };
+    
+    reader.readAsDataURL(file);
+}
+
+// ==================== UPDATED SAVE VENDOR FUNCTION ====================
+async function saveVendor(f, isFree) {
+    // Use compressed photo if available, otherwise use default
+    let finalPhoto = window.compressedPhotoData || getDefaultPhoto();
+    
+    // Clear the stored photo data after use
+    window.compressedPhotoData = null;
+
+    const vendor = {
+        id: Date.now(),
+        name: f.name.value.trim(),
+        mobile: f.mobile.value.trim(),
+        service: f.service.value === 'Others' ? f.custom_service.value.trim() : f.service.value,
+        location: f.area.value.trim(),
+        experience: f.exp.value,
+        photo: finalPhoto, // Now using compressed image
+        description: f.desc.value.trim(),
+        paid: !isFree,
+        approved: false,
+        regDate: new Date().toLocaleDateString('en-IN'),
+        regDateTime: new Date().toLocaleString('en-IN'),
+        deviceId: getDeviceId(),
+        timestamp: Date.now()
+    };
+
+    vendors.push(vendor);
+    
+    // Use optimized Firebase save
+    await saveVendorsToFirebaseOptimized();
+
+    if (isFree) {
+        popup('Registration Submitted!', 'Your registration has been submitted for admin approval. You will be visible to customers once approved.');
+        document.getElementById('vendor-form').reset();
+        document.getElementById('photo-preview').innerHTML = ''; // Clear preview
+        show('home');
+    } else {
+        document.getElementById('reg-number').textContent = vendors.filter(v => v.approved).length + 1;
+        show('payment-page');
+    }
+    
+    updateFreeSlots();
+}
+
 // ==================== OPTIMIZED VENDOR SAVE ====================
 async function saveVendor(photoData, f, isFree) {
     // Use compressed default photo
@@ -1618,22 +2105,9 @@ document.getElementById('vendor-form').addEventListener('submit', async function
   try {
     const approvedCount = vendors.filter(v => v.approved).length;
     const isFree = approvedCount < 50;
-    const photoFile = f.photo.files[0];
     
-    let photoData = getDefaultPhoto();
-    
-    if (photoFile) {
-        console.log("📁 User uploaded photo, converting to base64...");
-        // Convert file to base64 first
-        photoData = await new Promise((resolve) => {
-            const reader = new FileReader();
-            reader.onload = (e) => resolve(e.target.result);
-            reader.onerror = () => resolve(getDefaultPhoto());
-            reader.readAsDataURL(photoFile);
-        });
-    }
-    
-    await saveVendor(photoData, f, isFree);
+    // ✅ NOW WE DON'T NEED TO PROCESS PHOTO HERE - IT'S ALREADY COMPRESSED
+    await saveVendor(f, isFree);
     
   } catch (error) {
     console.error('Form submission error:', error);
@@ -2312,11 +2786,18 @@ window.onload = async () => {
   
   document.getElementById('vendor-form').reset();
   
-  // ✅ ADD MIGRATION BUTTON TO ADMIN PANEL
+  // ✅ ADD ALL ADMIN BUTTONS
+  addCompressButton();
+  addFixSyncButton();
   addMigrationButton();
+  addDebugButton();
+  addFixPhotosButton();
+  addResizeButton();  // ✅ ADD THIS NEW LINE
   
-  // ✅ START AUTO MIGRATION (optional)
-  startAutoMigration();
+  // ✅ AUTO-RESIZE LARGE PHOTOS
+  setTimeout(() => {
+    fixLargePhotos();  // ✅ ADD THIS LINE
+  }, 3000);
   
   document.querySelectorAll('.feature-card').forEach(card => {
     card.style.cursor = 'pointer';
