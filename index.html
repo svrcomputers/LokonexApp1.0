@@ -15,7 +15,6 @@
 <meta http-equiv="Pragma" content="no-cache" />
 <meta http-equiv="Expires" content="0" />
 
-
 <!-- ✅ ENHANCED MOBILE DATA LOADER - REPLACE WITH THIS -->
 <script>
 // ENHANCED MOBILE DATA LOAD FIX
@@ -369,6 +368,27 @@ html {
     display: block !important;
   }
   
+
+/* OTP Form Styling */
+.otp-input {
+    text-align: center;
+    font-size: 1.4rem;
+    letter-spacing: 0.8rem;
+    font-weight: bold;
+}
+
+.otp-timer {
+    color: #ffd700;
+    text-align: center;
+    font-size: 0.9rem;
+    margin: 0.5rem 0;
+}
+
+.otp-success {
+    color: #25d366;
+    text-align: center;
+    font-weight: bold;
+}
   #vendors h2 {
     font-size: 1.3rem !important;
     line-height: 1.2;
@@ -1047,7 +1067,331 @@ function setupOptimizedRealtimeSync() {
 let firebaseSaveQueue = [];
 let isSavingToFirebase = false;
 
+// ==================== EXISTING PHOTOS MIGRATION ====================
+async function migrateExistingPhotos() {
+    console.log("🔄 Migrating existing photos to compressed versions...");
+    
+    let migratedCount = 0;
+    const totalVendors = vendors.length;
+    
+    for (let i = 0; i < totalVendors; i++) {
+        const vendor = vendors[i];
+        
+        // Check if photo is large base64 (not default and not already compressed)
+        if (vendor.photo && 
+            vendor.photo.startsWith('data:image/') && 
+            vendor.photo.length > 5000 && // Large base64 (more than 5KB)
+            !vendor.photo.includes('80x80') && // Not already compressed
+            vendor.photo !== getDefaultPhoto()) {
+            
+            try {
+                console.log(`🔧 Compressing existing photo for: ${vendor.name}`);
+                const compressedPhoto = await compressImageExtremely(vendor.photo);
+                vendor.photo = compressedPhoto;
+                migratedCount++;
+                
+                console.log(`✅ Compressed photo ${i+1}/${totalVendors}: ${vendor.name}`);
+                
+                // Small delay to prevent blocking
+                await new Promise(resolve => setTimeout(resolve, 50));
+            } catch (error) {
+                console.error(`❌ Failed to compress photo for ${vendor.name}:`, error);
+            }
+        }
+    }
+    
+    if (migratedCount > 0) {
+        await saveVendorsToFirebaseOptimized();
+        console.log(`✅ Successfully migrated ${migratedCount} photos to compressed versions`);
+        // ❌ REMOVED: User popup - only show in console
+    } else {
+        console.log("ℹ️ No photos needed migration - all photos are already optimized");
+        // ❌ REMOVED: User popup - only show in console
+    }
+    
+    return migratedCount;
+}
 
+// Add migration button to admin panel
+function addMigrationButton() {
+    const dashboard = document.getElementById('dashboard');
+    if (dashboard) {
+        // Check if button already exists
+        if (document.getElementById('migration-btn')) return;
+        
+        const migrationBtn = document.createElement('button');
+        migrationBtn.id = 'migration-btn';
+        migrationBtn.className = 'glow-btn';
+        migrationBtn.style.background = '#9b59b6';
+        migrationBtn.style.margin = '0.5rem';
+        migrationBtn.innerHTML = '<i class="fas fa-compress"></i> Optimize Existing Photos';
+        migrationBtn.onclick = startPhotoMigration;
+        
+        // Add button after the existing buttons
+        const buttonContainer = dashboard.querySelector('.category-management');
+        if (buttonContainer) {
+            buttonContainer.parentNode.insertBefore(migrationBtn, buttonContainer);
+        } else {
+            dashboard.querySelector('h2').after(migrationBtn);
+        }
+    }
+}
+
+async function startPhotoMigration() {
+    const result = await migrateExistingPhotos();
+    showDashboard(); // Refresh admin view
+}
+
+// Auto-migrate on app load (optional)
+// Auto-migrate on app load (silent - no popups)
+function startAutoMigration() {
+    setTimeout(async () => {
+        const migratedCount = await migrateExistingPhotos();
+        if (migratedCount > 0) {
+            console.log(`🔄 Auto-migrated ${migratedCount} photos silently`);
+        }
+    }, 8000); // Wait 8 seconds after page load
+}
+// ==================== OTP PROTECTION SYSTEM ====================
+let otpStore = JSON.parse(localStorage.getItem('vendor_otp_store')) || {};
+
+// Generate and send OTP
+// ==================== FIREBASE OTP PROTECTION ====================
+async function sendEditOTP(mobile, vendorId) {
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpExpiry = Date.now() + 10 * 60 * 1000; // 10 minutes
+    
+    try {
+        // Store OTP in Firebase (very small data)
+        await database.ref('otps/' + mobile).set({
+            otp: otp,
+            vendorId: vendorId,
+            expiry: otpExpiry,
+            attempts: 0,
+            timestamp: Date.now()
+        });
+        
+        console.log(`📱 OTP for ${mobile}: ${otp} (Firebase)`);
+        
+        // For demo - show OTP in popup
+        return new Promise((resolve) => {
+            popup('OTP Sent', `OTP: ${otp} (Demo)<br>Mobile: ${mobile}`, () => {
+                showOTPVerification(vendorId, mobile);
+                resolve(true);
+            });
+        });
+        
+    } catch (error) {
+        console.error('Firebase OTP save error:', error);
+        // Fallback to localStorage
+        return sendEditOTP_Fallback(mobile, vendorId, otp);
+    }
+}
+
+// Fallback to localStorage if Firebase fails
+function sendEditOTP_Fallback(mobile, vendorId, otp) {
+    let otpStore = JSON.parse(localStorage.getItem('vendor_otp_store')) || {};
+    
+    otpStore[mobile] = {
+        otp: otp,
+        vendorId: vendorId,
+        expiry: Date.now() + 10 * 60 * 1000,
+        attempts: 0
+    };
+    
+    localStorage.setItem('vendor_otp_store', JSON.stringify(otpStore));
+    
+    console.log(`📱 OTP for ${mobile}: ${otp} (LocalStorage Fallback)`);
+    
+    return new Promise((resolve) => {
+        popup('OTP Sent', `OTP: ${otp} (Demo)<br>Mobile: ${mobile}`, () => {
+            showOTPVerification(vendorId, mobile);
+            resolve(true);
+        });
+    });
+}
+
+// Show OTP verification form
+function showOTPVerification(vendorId, mobile) {
+    const vendorBox = document.querySelector(`.vendor-box[data-id="${vendorId}"]`);
+    if (!vendorBox) return;
+    
+    const otpForm = document.createElement('div');
+    otpForm.className = 'edit-form';
+    otpForm.style.borderColor = '#25d366';
+    otpForm.innerHTML = `
+        <h3 style="color:#25d366;">
+            <i class="fas fa-shield-alt"></i> Verify OTP
+        </h3>
+        <p style="text-align:center;margin-bottom:1rem;">
+            OTP sent to <strong>${mobile}</strong><br>
+            <small style="color:#ffd700;">Valid for 10 minutes</small>
+        </p>
+        <input type="text" id="otp-input" placeholder="Enter 6-digit OTP" maxlength="6" style="text-align:center;font-size:1.2rem;letter-spacing:0.5rem;">
+        <div style="display:flex;gap:0.5rem;margin-top:1rem;">
+            <button class="glow-btn" onclick="verifyOTP(${vendorId}, '${mobile}')" style="background:#25d366;flex:1;">
+                <i class="fas fa-check"></i> Verify OTP
+            </button>
+            <button class="glow-btn" onclick="resendOTP(${vendorId}, '${mobile}')" style="background:#3498db;">
+                <i class="fas fa-redo"></i>
+            </button>
+            <button class="glow-btn" onclick="cancelOTP(${vendorId})" style="background:#666;">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <p id="otp-error" style="color:#e74c3c;text-align:center;margin-top:0.5rem;display:none;"></p>
+    `;
+    
+    // Hide the edit button temporarily
+    const editBtn = vendorBox.querySelector('.edit-btn');
+    if (editBtn) editBtn.style.display = 'none';
+    
+    vendorBox.parentNode.insertBefore(otpForm, vendorBox.nextSibling);
+    
+    // Auto-focus on OTP input
+    setTimeout(() => {
+        const otpInput = document.getElementById('otp-input');
+        if (otpInput) otpInput.focus();
+    }, 100);
+}
+
+// Verify OTP from Firebase
+async function verifyOTP(vendorId, mobile) {
+    const otpInput = document.getElementById('otp-input');
+    const enteredOTP = otpInput.value;
+    
+    try {
+        // Try Firebase first
+        const snapshot = await database.ref('otps/' + mobile).once('value');
+        const storedOTP = snapshot.val();
+        
+        if (storedOTP && Date.now() < storedOTP.expiry) {
+            if (enteredOTP === storedOTP.otp) {
+                // OTP verified - delete from Firebase
+                await database.ref('otps/' + mobile).remove();
+                
+                // Remove OTP form and show edit form
+                const otpForm = document.querySelector('.edit-form');
+                if (otpForm) otpForm.remove();
+                showEditForm(vendorId);
+                return;
+            } else {
+                // Wrong OTP - update attempts
+                const attempts = (storedOTP.attempts || 0) + 1;
+                await database.ref('otps/' + mobile).update({ attempts: attempts });
+                
+                if (attempts >= 3) {
+                    await database.ref('otps/' + mobile).remove();
+                    showOTPError('Too many failed attempts. OTP blocked.');
+                } else {
+                    showOTPError(`Wrong OTP. ${3 - attempts} attempts remaining.`);
+                }
+            }
+        } else {
+            // Firebase OTP expired or not found, try localStorage
+            verifyOTP_Fallback(vendorId, mobile, enteredOTP);
+        }
+    } catch (error) {
+        console.error('Firebase OTP verify error:', error);
+        // Fallback to localStorage
+        verifyOTP_Fallback(vendorId, mobile, enteredOTP);
+    }
+}
+
+// Fallback OTP verification
+function verifyOTP_Fallback(vendorId, mobile, enteredOTP) {
+    let otpStore = JSON.parse(localStorage.getItem('vendor_otp_store')) || {};
+    const storedOTP = otpStore[mobile];
+    
+    if (storedOTP && Date.now() < storedOTP.expiry) {
+        if (enteredOTP === storedOTP.otp) {
+            // OTP verified - delete from localStorage
+            delete otpStore[mobile];
+            localStorage.setItem('vendor_otp_store', JSON.stringify(otpStore));
+            
+            // Remove OTP form and show edit form
+            const otpForm = document.querySelector('.edit-form');
+            if (otpForm) otpForm.remove();
+            showEditForm(vendorId);
+        } else {
+            // Wrong OTP
+            storedOTP.attempts = (storedOTP.attempts || 0) + 1;
+            otpStore[mobile] = storedOTP;
+            localStorage.setItem('vendor_otp_store', JSON.stringify(otpStore));
+            
+            if (storedOTP.attempts >= 3) {
+                delete otpStore[mobile];
+                localStorage.setItem('vendor_otp_store', JSON.stringify(otpStore));
+                showOTPError('Too many failed attempts. OTP blocked.');
+            } else {
+                showOTPError(`Wrong OTP. ${3 - storedOTP.attempts} attempts remaining.`);
+            }
+        }
+    } else {
+        showOTPError('OTP expired or not found. Please resend.');
+    }
+}
+
+function showOTPError(message) {
+    const errorElement = document.getElementById('otp-error');
+    if (errorElement) {
+        errorElement.textContent = message;
+        errorElement.style.display = 'block';
+    }
+}
+
+// Resend OTP
+async function resendOTP(vendorId, mobile) {
+    const otpForm = document.querySelector('.edit-form');
+    if (otpForm) otpForm.remove();
+    
+    await sendEditOTP(mobile, vendorId);
+}
+
+// Cancel OTP verification
+function cancelOTP(vendorId) {
+    const otpForm = document.querySelector('.edit-form');
+    if (otpForm) otpForm.remove();
+    
+    // Show edit button again
+    const vendorBox = document.querySelector(`.vendor-box[data-id="${vendorId}"]`);
+    if (vendorBox) {
+        const editBtn = vendorBox.querySelector('.edit-btn');
+        if (editBtn) editBtn.style.display = 'inline-flex';
+    }
+}
+
+// Start edit process with OTP verification
+function startEditProcess(vendorId) {
+    const vendor = vendors.find(v => v.id === vendorId);
+    if (!vendor) return;
+    
+    // Show confirmation before sending OTP
+    popup('Verify Ownership', 
+          `We will send OTP to ${vendor.mobile} to verify you are the owner. Continue?`, 
+          () => {
+              sendEditOTP(vendor.mobile, vendorId);
+          });
+}
+
+// Clean expired OTPs from Firebase (optional)
+async function cleanExpiredOTPs() {
+    try {
+        const snapshot = await database.ref('otps').once('value');
+        const otps = snapshot.val();
+        const now = Date.now();
+        
+        for (const mobile in otps) {
+            if (otps[mobile].expiry < now) {
+                await database.ref('otps/' + mobile).remove();
+            }
+        }
+    } catch (error) {
+        console.error('Clean OTPs error:', error);
+    }
+}
+
+// ==================== END OTP PROTECTION ====================
 // ==================== FIREBASE MONITORING ====================
 function showFirebaseStats() {
   console.log("=== 🔥 FIREBASE OPTIMIZATION STATS ===");
@@ -1307,53 +1651,79 @@ function updateServiceWorker() {
   }
 }
 
+// ==================== IMAGE COMPRESSION FUNCTIONS ====================
+function compressImageExtremely(base64Image) {
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = function() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 80;
+            canvas.height = 80;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, 80, 80);
+            const compressedBase64 = canvas.toDataURL('image/jpeg', 0.3);
+            console.log("📸 Image compressed to 80x80 with 30% quality");
+            resolve(compressedBase64);
+        };
+        img.onerror = () => resolve(base64Image);
+        img.src = base64Image;
+    });
+}
+
+function getDefaultPhoto() {
+    return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAiIGhlaWdodD0iODAiIHZpZXdCb3g9IjAgMCA4MCA4MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSI0MCIgY3k9IjQwIiByPSIzMCIgZmlsbD0iI2ZmZDcwMCIvPjxjaXJjbGUgY3g9IjQwIiBjeT0iMzAiIHI9IjEwIiBmaWxsPSIjMjAzYTQzIi8+PHBhdGggZD0iTTI1IDU1VjQ4QzI1IDQwIDMyIDM1IDQwIDM1QzQ4IDM1IDU1IDQwIDU1IDQ4VjU1IiBzdHJva2U9IiMyMDNhNDMiIHN0cm9rZS13aWR0aD0iMiIvPjwvc3ZnPg==';
+}
+
 // ==================== OPTIMIZED VENDOR SAVE ====================
+async function saveVendor(photoData, f, isFree) {
+    // Use compressed default photo
+    let finalPhoto = getDefaultPhoto();
+    
+    // Compress user photo if provided
+    if (photoData && photoData.startsWith('data:image/')) {
+        try {
+            console.log("🔧 Compressing user photo...");
+            finalPhoto = await compressImageExtremely(photoData);
+            console.log("✅ Photo compressed successfully");
+        } catch (error) {
+            console.error("❌ Compression failed, using default:", error);
+            finalPhoto = getDefaultPhoto();
+        }
+    }
 
-function saveVendor(photoData, f, isFree) {
-  const defaultPhoto = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTUwIiBoZWlnaHQ9IjE1MCIgdmlld0JveD0iMCAwIDE1MCAxNTAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjE1MCIgaGVpZ2h0PSI1MCIgZmlsbD0iIzIwM2E0MyIvPjxjaXJjbGUgY3g9Ijc1IiBjeT0iNjAiIHI9IjIwIiBmaWxsPSIjZmZkNzAwIi8+PHBhdGggZD0iTTMwIDEyMFYxMTBDMzAgOTUgNDUgODUgNzUgODVDMTA1IDg1IDEyMCA5NSAxMjAgMTEwVjEyMCIgc3Ryb2tlPSIjZmZkNzAwIiBzdHJva2Utd2lkdGg9IjIiLz48L3N2Zz4=';
+    const vendor = {
+        id: Date.now(),
+        name: f.name.value.trim(),
+        mobile: f.mobile.value.trim(),
+        service: f.service.value === 'Others' ? f.custom_service.value.trim() : f.service.value,
+        location: f.area.value.trim(),
+        experience: f.exp.value,
+        photo: finalPhoto, // Now compressed image
+        description: f.desc.value.trim(),
+        paid: !isFree,
+        approved: false,
+        regDate: new Date().toLocaleDateString('en-IN'),
+        regDateTime: new Date().toLocaleString('en-IN'),
+        deviceId: getDeviceId(),
+        timestamp: Date.now()
+    };
 
-  let finalPhoto = defaultPhoto;
-  
-  if (photoData && photoData.startsWith('data:image/')) {
-    finalPhoto = photoData;
-  }
+    vendors.push(vendor);
+    
+    
+    // Use optimized Firebase save
+    await saveVendorsToFirebaseOptimized();
 
-  const vendor = {
-    id: Date.now(),
-    name: f.name.value.trim(),
-    mobile: f.mobile.value.trim(),
-    service: f.service.value === 'Others' ? f.custom_service.value.trim() : f.service.value,
-    location: f.area.value.trim(),
-    experience: f.exp.value,
-    photo: finalPhoto,
-    description: f.desc.value.trim(),
-    paid: !isFree,
-    approved: false, // All vendors require admin approval
-    regDate: new Date().toLocaleDateString('en-IN'),
-    regDateTime: new Date().toLocaleString('en-IN'),
-    deviceId: getDeviceId(),
-    timestamp: Date.now()
-  };
-
-  vendors.push(vendor);
-  
-  
-  // Use optimized Firebase save
-  saveVendorsToFirebaseOptimized().then(() => {
-    console.log("✅ Vendor saved and synced to all devices");
-    showFirebaseStats();
-  });
-
-  if (isFree) {
-    popup('Registration Submitted!', 'Your registration has been submitted for admin approval. You will be visible to customers once approved.');
-    document.getElementById('vendor-form').reset();
-    show('home');
-  } else {
-    document.getElementById('reg-number').textContent = vendors.filter(v => v.approved).length + 1;
-    show('payment-page');
-  }
-  
-  updateFreeSlots();
+    if (isFree) {
+        popup('Registration Submitted!', 'Your registration has been submitted for admin approval. You will be visible to customers once approved.');
+        document.getElementById('vendor-form').reset();
+        show('home');
+    } else {
+        document.getElementById('reg-number').textContent = vendors.filter(v => v.approved).length + 1;
+        show('payment-page');
+    }
+    
+    updateFreeSlots();
 }
 
 function saveV() { 
@@ -1505,13 +1875,20 @@ document.getElementById('vendor-form').addEventListener('submit', async function
     const isFree = approvedCount < 50;
     const photoFile = f.photo.files[0];
     
-    let photoData = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTUwIiBoZWlnaHQ9IjE1MCIgdmlld0JveD0iMCAwIDE1MCAxNTAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjE1MCIgaGVpZ2h0PSI1MCIgZmlsbD0iIzIwM2E0MyIvPjxjaXJjbGUgY3g9Ijc1IiBjeT0iNjAiIHI9IjIwIiBmaWxsPSIjZmZkNzAwIi8+PHBhdGggZD0iTTMwIDEyMFYxMTBDMzAgOTUgNDUgODUgNzUgODVDMTA1IDg1IDEyMCA5NSAxMjAgMTEwVjEyMCIgc3Ryb2tlPSIjZmZkNzAwIiBzdHJva2Utd2lkdGg9IjIiLz48L3N2Zz4=';
-
+    let photoData = getDefaultPhoto();
+    
     if (photoFile) {
-      photoData = await fastCompressPhoto(photoFile, 50);
+        console.log("📁 User uploaded photo, converting to base64...");
+        // Convert file to base64 first
+        photoData = await new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target.result);
+            reader.onerror = () => resolve(getDefaultPhoto());
+            reader.readAsDataURL(photoFile);
+        });
     }
     
-    saveVendor(photoData, f, isFree);
+    await saveVendor(photoData, f, isFree);
     
   } catch (error) {
     console.error('Form submission error:', error);
@@ -1536,119 +1913,192 @@ document.getElementById('paid-btn').onclick = () => {
 };
 
 function showVendors(filteredVendors = null) {
-  const grid = document.getElementById('vendor-grid');
-  if (!grid) return;
-  
-  let approvedVendors = filteredVendors || vendors.filter(v => v.approved && !isExpired(v.regDate));
-  
-  console.log("🔄 Displaying vendors:", approvedVendors.length);
-  
-  if (approvedVendors.length === 0) {
-    grid.innerHTML = '<p style="text-align:center;grid-column:1/-1;padding:2rem">No vendors found</p>';
-    return;
-  }
-  
-  const defaultPhoto = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTUwIiBoZWlnaHQ9IjE1MCIgdmlld0JveD0iMCAwIDE1MCAxNTAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjE1MCIgaGVpZ2h0PSI1MCIgZmlsbD0iIzIwM2E0MyIvPjxjaXJjbGUgY3g9Ijc1IiBjeT0iNjAiIHI9IjIwIiBmaWxsPSIjZmZkNzAwIi8+PHBhdGggZD0iTTMwIDEyMFYxMTBDMzAgOTUgNDUgODUgNzUgODVDMTA1IDg1IDEyMCA5NSAxMjAgMTEwVjEyMCIgc3Ryb2tlPSIjZmZkNzAwIiBzdHJva2Utd2lkdGg9IjIiLz48L3N2Zz4=';
-  
-  grid.innerHTML = approvedVendors.map(v => `
-    <div class="vendor-box" data-id="${v.id}">
-      <div class="vendor-header">
-        <img src="${v.photo || defaultPhoto}" 
-             alt="${v.name}" 
-             class="vendor-img">
-        <div class="vendor-info">
-          <h3>${v.name}</h3>
-          <p style="color:#ffd700;font-weight:500">${v.service}</p>
-        </div>
-      </div>
-      <div class="vendor-details">
-        <div class="vendor-detail">
-          <i class="fas fa-phone"></i>
-          <span>${v.mobile}</span>
-        </div>
-        <div class="vendor-detail">
-          <i class="fas fa-map-marker-alt"></i>
-          <span>${v.location}</span>
-        </div>
-        <div class="vendor-detail">
-          <i class="fas fa-briefcase"></i>
-          <span>${v.experience} years experience</span>
-        </div>
-        <div class="vendor-detail">
-          <i class="fas fa-info-circle"></i>
-          <span>${v.description}</span>
-        </div>
-      </div>
-      <div class="vendor-actions">
-        <button class="glow-btn call-btn" onclick="contactVendor('call', '${v.mobile}')">
-          <i class="fas fa-phone"></i> Call
-        </button>
-        <button class="glow-btn whatsapp-btn" onclick="contactVendor('whatsapp', '${v.mobile}')">
-          <i class="fab fa-whatsapp"></i> WhatsApp
-        </button>
-        <!-- ✅ EDIT BUTTON ADDED -->
-        <button class="glow-btn edit-btn" onclick="showEditForm(${v.id})">
-          <i class="fas fa-edit"></i> Edit
-        </button>
-      </div>
-    </div>
-  `).join('');
-}
+    const grid = document.getElementById('vendor-grid');
+    if (!grid) return;
+    
+    // ✅ FIX: Always use filtered vendors if provided, otherwise show all
+    let vendorsToShow = filteredVendors !== null ? filteredVendors : vendors.filter(v => v.approved && !isExpired(v.regDate));
+    
+    // ✅ Reset filter when showing all vendors
+    if (filteredVendors === null) {
+        window.currentFilter = null;
+    }
+    
+    console.log("🔄 Displaying vendors:", vendorsToShow.length, 
+                filteredVendors !== null ? "(FILTERED: " + window.currentFilter + ")" : "(ALL)");
 
+if (filteredVendors !== null) {
+        console.log("🔒 Locking filtered view - Firebase refresh blocked");
+        window.isFilteredView = true;
+    }
+    
+    if (vendorsToShow.length === 0) {
+        grid.innerHTML = '<p style="text-align:center;grid-column:1/-1;padding:2rem">No vendors found</p>';
+        return;
+    }
+    
+    const defaultPhoto = getDefaultPhoto();
+    
+    grid.innerHTML = vendorsToShow.map(v => `
+        <div class="vendor-box" data-id="${v.id}">
+            <div class="vendor-header">
+                <img src="${v.photo || defaultPhoto}" 
+                     alt="${v.name}" 
+                     class="vendor-img">
+                <div class="vendor-info">
+                    <h3>${v.name}</h3>
+                    <p style="color:#ffd700;font-weight:500">${v.service}</p>
+                </div>
+            </div>
+            <div class="vendor-details">
+                <div class="vendor-detail">
+                    <i class="fas fa-phone"></i>
+                    <span>${v.mobile}</span>
+                </div>
+                <div class="vendor-detail">
+                    <i class="fas fa-map-marker-alt"></i>
+                    <span>${v.location}</span>
+                </div>
+                <div class="vendor-detail">
+                    <i class="fas fa-briefcase"></i>
+                    <span>${v.experience} years experience</span>
+                </div>
+                <div class="vendor-detail">
+                    <i class="fas fa-info-circle"></i>
+                    <span>${v.description}</span>
+                </div>
+            </div>
+            <div class="vendor-actions">
+                <button class="glow-btn call-btn" onclick="contactVendor('call', '${v.mobile}')">
+                    <i class="fas fa-phone"></i> Call
+                </button>
+                <button class="glow-btn whatsapp-btn" onclick="contactVendor('whatsapp', '${v.mobile}')">
+                    <i class="fab fa-whatsapp"></i> WhatsApp
+                </button>
+                <button class="glow-btn edit-btn" onclick="startEditProcess(${v.id})">
+                    <i class="fas fa-edit"></i> Edit
+                </button>
+            </div>
+        </div>
+    `).join('');
+
+if (filteredVendors === null) {
+        window.isFilteredView = false;
+    }
+}
 function showEditForm(vendorId) {
-  const vendor = vendors.find(v => v.id === vendorId);
-  if (!vendor) return;
-  
-  const vendorBox = document.querySelector(`.vendor-box[data-id="${vendorId}"]`);
-  if (!vendorBox) return;
-  
-  const editForm = document.createElement('div');
-  editForm.className = 'edit-form';
-  editForm.innerHTML = `
-    <h3>Edit Your Details</h3>
-    <input type="text" id="edit-name" value="${vendor.name}" placeholder="Full Name">
-    <input type="tel" id="edit-mobile" value="${vendor.mobile}" placeholder="Mobile">
-    <select id="edit-service">
-      ${CATEGORIES.map(c => `<option value="${c}" ${c === vendor.service ? 'selected' : ''}>${c}</option>`).join('')}
-      <option value="Others" ${!CATEGORIES.includes(vendor.service) ? 'selected' : ''}>Others</option>
-    </select>
-    <input type="text" id="edit-custom-service" value="${!CATEGORIES.includes(vendor.service) ? vendor.service : ''}" placeholder="Custom Service" style="${CATEGORIES.includes(vendor.service) ? 'display:none' : ''}">
-    <input type="text" id="edit-location" value="${vendor.location}" placeholder="Area">
-    <input type="number" id="edit-experience" value="${vendor.experience}" placeholder="Experience (Years)">
-    <textarea id="edit-description" placeholder="Description">${vendor.description}</textarea>
-    <div class="form-actions">
-      <button class="glow-btn" onclick="saveVendorEdit(${vendorId})">Save Changes</button>
-      <button class="glow-btn" onclick="cancelEdit(${vendorId})" style="background:#666">Cancel</button>
-    </div>
-  `;
-  
-  vendorBox.style.display = 'none';
-  vendorBox.parentNode.insertBefore(editForm, vendorBox.nextSibling);
-  
-  document.getElementById('edit-service').addEventListener('change', function() {
-    document.getElementById('edit-custom-service').style.display = 
-      this.value === 'Others' ? 'block' : 'none';
-  });
+    const vendor = vendors.find(v => v.id === vendorId);
+    if (!vendor) return;
+    
+    const vendorBox = document.querySelector(`.vendor-box[data-id="${vendorId}"]`);
+    if (!vendorBox) return;
+    
+    const editForm = document.createElement('div');
+    editForm.className = 'edit-form';
+    editForm.innerHTML = `
+        <h3>Edit Your Details</h3>
+        <input type="text" id="edit-name" value="${vendor.name}" placeholder="Full Name">
+        <input type="tel" id="edit-mobile" value="${vendor.mobile}" placeholder="Mobile">
+        <select id="edit-service">
+            ${CATEGORIES.map(c => `<option value="${c}" ${c === vendor.service ? 'selected' : ''}>${c}</option>`).join('')
 }
 
-function saveVendorEdit(vendorId) {
-  const vendorIndex = vendors.findIndex(v => v.id === vendorId);
-  if (vendorIndex === -1) return;
-  
-  const serviceValue = document.getElementById('edit-service').value;
-  
-  vendors[vendorIndex].name = document.getElementById('edit-name').value.trim();
-  vendors[vendorIndex].mobile = document.getElementById('edit-mobile').value.trim();
-  vendors[vendorIndex].service = serviceValue === 'Others' 
-    ? document.getElementById('edit-custom-service').value.trim() 
-    : serviceValue;
-  vendors[vendorIndex].location = document.getElementById('edit-location').value.trim();
-  vendors[vendorIndex].experience = document.getElementById('edit-experience').value;
-  vendors[vendorIndex].description = document.getElementById('edit-description').value.trim();
-  
-  saveV();
-  popup('Success', 'Your details have been updated successfully!');
-  showVendors();
+            <option value="Others" ${!CATEGORIES.includes(vendor.service) ? 'selected' : ''}>Others</option>
+        </select>
+        <input type="text" id="edit-custom-service" value="${!CATEGORIES.includes(vendor.service) ? vendor.service : ''}" placeholder="Custom Service" style="${CATEGORIES.includes(vendor.service) ? 'display:none' : ''}">
+        <input type="text" id="edit-location" value="${vendor.location}" placeholder="Area">
+        <input type="number" id="edit-experience" value="${vendor.experience}" placeholder="Experience (Years)">
+        
+        <!-- ✅ PHOTO UPLOAD SECTION ADDED -->
+        <div style="margin:1rem 0;padding:1rem;background:rgba(255,255,255,0.05);border-radius:12px;">
+            <label style="color:#ffd700;margin-bottom:0.5rem;display:block;">
+                <i class="fas fa-camera"></i> Update Photo (Optional)
+            </label>
+            <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1rem;">
+                <img src="${vendor.photo}" alt="Current Photo" style="width:60px;height:60px;border-radius:50%;border:2px solid #ffd700;">
+                <div>
+                    <p style="font-size:0.8rem;margin:0;">Current Photo</p>
+                    <p style="font-size:0.7rem;color:#ccc;margin:0;">Click below to change</p>
+                </div>
+            </div>
+            <input type="file" id="edit-photo" accept="image/*" style="width:100%;padding:0.5rem;">
+            <p style="font-size:0.7rem;color:#ffd700;margin-top:0.5rem;">
+                <i class="fas fa-info-circle"></i> New photo will be automatically compressed
+            </p>
+        </div>
+        
+        <textarea id="edit-description" placeholder="Description">${vendor.description}</textarea>
+        <div class="form-actions">
+            <button class="glow-btn" onclick="saveVendorEdit(${vendorId})">
+                <i class="fas fa-save"></i> Save Changes
+            </button>
+            <button class="glow-btn" onclick="cancelEdit(${vendorId})" style="background:#666">
+                <i class="fas fa-times"></i> Cancel
+            </button>
+        </div>
+    `;
+    
+    vendorBox.style.display = 'none';
+    vendorBox.parentNode.insertBefore(editForm, vendorBox.nextSibling);
+    
+    document.getElementById('edit-service').addEventListener('change', function() {
+        document.getElementById('edit-custom-service').style.display = 
+            this.value === 'Others' ? 'block' : 'none';
+    });
+}
+async function saveVendorEdit(vendorId) {
+    const vendorIndex = vendors.findIndex(v => v.id === vendorId);
+    if (vendorIndex === -1) return;
+    
+    const serviceValue = document.getElementById('edit-service').value;
+    const photoFile = document.getElementById('edit-photo').files[0];
+    
+    // Get existing vendor data
+    const updatedVendor = {
+        ...vendors[vendorIndex],
+        name: document.getElementById('edit-name').value.trim(),
+        mobile: document.getElementById('edit-mobile').value.trim(),
+        service: serviceValue === 'Others' 
+            ? document.getElementById('edit-custom-service').value.trim() 
+            : serviceValue,
+        location: document.getElementById('edit-location').value.trim(),
+        experience: document.getElementById('edit-experience').value,
+        description: document.getElementById('edit-description').value.trim(),
+        updateDate: new Date().toLocaleString('en-IN')
+    };
+    
+    // Handle photo update if new photo is selected
+    if (photoFile) {
+        try {
+            console.log("📸 Processing new photo for vendor...");
+            
+            // Convert file to base64 first
+            const photoData = await new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = (e) => resolve(e.target.result);
+                reader.onerror = () => resolve(updatedVendor.photo); // Keep old photo if error
+                reader.readAsDataURL(photoFile);
+            });
+            
+            // Compress the new photo
+            const compressedPhoto = await compressImageExtremely(photoData);
+            updatedVendor.photo = compressedPhoto;
+            
+            console.log("✅ Vendor photo updated and compressed");
+        } catch (error) {
+            console.error("❌ Photo update failed:", error);
+            // Keep the existing photo if compression fails
+        }
+    }
+    
+    // Update the vendor in the array
+    vendors[vendorIndex] = updatedVendor;
+    
+    // Save to storage and Firebase
+    await saveVendorsToFirebaseOptimized();
+    
+    popup('Success', 'Your details have been updated successfully!');
+    showVendors();
 }
 
 function cancelEdit(vendorId) {
@@ -1664,27 +2114,48 @@ function cancelEdit(vendorId) {
 
 // FIXED: Improved category filtering
 function filterByCategory(c) {
-  show('vendors');
-  
-  // Get approved and non-expired vendors
-  let filtered = vendors.filter(v => v.approved && !isExpired(v.regDate));
-  
-  if (c === 'Others') {
-    // Show vendors with services not in predefined categories (excluding "Others")
-    const mainCategories = CATEGORIES.filter(cat => cat !== 'Others');
-    filtered = filtered.filter(v => !mainCategories.includes(v.service));
-  } else {
-    // Show vendors from the selected category
-    filtered = filtered.filter(v => v.service === c);
-  }
-  
-  showVendors(filtered);
-  
-  // Show message if no vendors found
-  if (filtered.length === 0) {
-    const grid = document.getElementById('vendor-grid');
-    grid.innerHTML = '<p style="text-align:center;grid-column:1/-1;padding:2rem;color:#ffd700">No vendors found in ' + c + ' category</p>';
-  }
+    console.log("🔍 FILTER DEBUG START ====================");
+    console.log("Selected category:", c);
+    
+    // ✅ Track current filter
+    window.currentFilter = c;
+    
+    show('vendors');
+    
+    // Get approved and non-expired vendors
+    let filtered = vendors.filter(v => v.approved && !isExpired(v.regDate));
+    console.log("Total approved vendors:", filtered.length);
+    
+    // Log all vendor services for debugging
+    console.log("All vendor services:", filtered.map(v => v.service));
+    
+    if (c === 'Others') {
+        // Show vendors with services not in predefined categories
+        const mainCategories = CATEGORIES.filter(cat => cat !== 'Others');
+        console.log("Main categories:", mainCategories);
+        filtered = filtered.filter(v => !mainCategories.includes(v.service));
+        console.log("After Others filter:", filtered.length);
+    } else {
+        // Show vendors from the selected category - EXACT MATCH
+        console.log("Filtering for exact match:", c);
+        filtered = filtered.filter(v => {
+            const match = v.service === c;
+            console.log(`Vendor: ${v.name}, Service: "${v.service}", Match: ${match}`);
+            return match;
+        });
+        console.log("After category filter:", filtered.length);
+    }
+    
+    console.log("Final filtered count:", filtered.length);
+    console.log("🔍 FILTER DEBUG END ====================");
+    
+    showVendors(filtered);
+    
+    // Show message if no vendors found
+    if (filtered.length === 0) {
+        const grid = document.getElementById('vendor-grid');
+        grid.innerHTML = '<p style="text-align:center;grid-column:1/-1;padding:2rem;color:#ffd700">No vendors found in ' + c + ' category</p>';
+    }
 }
 
 // FIXED: Improved search functionality with auto-search
@@ -1781,7 +2252,101 @@ function showDashboard() {
   
   updateSelectedCount();
 }
+// ==================== UPDATE SELECTED VENDORS ====================
+function updateSelected() {
+    const selected = Array.from(document.querySelectorAll('.vendor-check:checked')).map(cb => parseInt(cb.dataset.id));
+    
+    if (selected.length === 0) {
+        popup('Error', 'Please select at least one vendor to update');
+        return;
+    }
+    
+    if (selected.length > 1) {
+        popup('Info', 'Please select only one vendor to update at a time');
+        return;
+    }
+    
+    const vendorId = selected[0];
+    const vendor = vendors.find(v => v.id === vendorId);
+    
+    if (!vendor) {
+        popup('Error', 'Vendor not found');
+        return;
+    }
+    
+    // Show update form for the selected vendor
+    showUpdateForm(vendorId);
+}
 
+function showUpdateForm(vendorId) {
+    const vendor = vendors.find(v => v.id === vendorId);
+    if (!vendor) return;
+    
+    const container = document.getElementById('update-form-container');
+    container.innerHTML = `
+        <div class="update-form">
+            <h4>Update Vendor: ${vendor.name}</h4>
+            <input type="text" id="update-name" value="${vendor.name}" placeholder="Full Name">
+            <input type="tel" id="update-mobile" value="${vendor.mobile}" placeholder="Mobile">
+            <select id="update-service">
+                ${CATEGORIES.map(c => `<option value="${c}" ${c === vendor.service ? 'selected' : ''}>${c}</option>`).join('')}
+                <option value="Others" ${!CATEGORIES.includes(vendor.service) ? 'selected' : ''}>Others</option>
+            </select>
+            <input type="text" id="update-custom-service" value="${!CATEGORIES.includes(vendor.service) ? vendor.service : ''}" placeholder="Custom Service" style="${CATEGORIES.includes(vendor.service) ? 'display:none' : ''}">
+            <input type="text" id="update-location" value="${vendor.location}" placeholder="Area">
+            <input type="number" id="update-experience" value="${vendor.experience}" placeholder="Experience (Years)">
+            <textarea id="update-description" placeholder="Description">${vendor.description}</textarea>
+            <select id="update-status">
+                <option value="pending" ${!vendor.approved ? 'selected' : ''}>Pending</option>
+                <option value="approved" ${vendor.approved ? 'selected' : ''}>Approved</option>
+            </select>
+            <div style="display:flex;gap:0.5rem;justify-content:center;margin-top:1rem">
+                <button class="glow-btn" onclick="saveVendorUpdate(${vendorId})">Save Changes</button>
+                <button class="glow-btn" onclick="cancelUpdate()" style="background:#666">Cancel</button>
+            </div>
+        </div>
+    `;
+    
+    container.style.display = 'block';
+    
+    // Show custom service field if "Others" is selected
+    document.getElementById('update-service').addEventListener('change', function() {
+        document.getElementById('update-custom-service').style.display = 
+            this.value === 'Others' ? 'block' : 'none';
+    });
+}
+
+function saveVendorUpdate(vendorId) {
+    const vendorIndex = vendors.findIndex(v => v.id === vendorId);
+    if (vendorIndex === -1) return;
+    
+    const serviceValue = document.getElementById('update-service').value;
+    const statusValue = document.getElementById('update-status').value;
+    
+    vendors[vendorIndex] = {
+        ...vendors[vendorIndex],
+        name: document.getElementById('update-name').value.trim(),
+        mobile: document.getElementById('update-mobile').value.trim(),
+        service: serviceValue === 'Others' 
+            ? document.getElementById('update-custom-service').value.trim() 
+            : serviceValue,
+        location: document.getElementById('update-location').value.trim(),
+        experience: document.getElementById('update-experience').value,
+        description: document.getElementById('update-description').value.trim(),
+        approved: statusValue === 'approved',
+        updateDate: new Date().toLocaleString('en-IN')
+    };
+    
+    saveV();
+    popup('Success', 'Vendor details updated successfully!');
+    cancelUpdate();
+    showDashboard();
+}
+
+function cancelUpdate() {
+    document.getElementById('update-form-container').style.display = 'none';
+    document.getElementById('update-form-container').innerHTML = '';
+}
 function updateSelectedCount() {
   const selected = document.querySelectorAll('.vendor-check:checked').length;
   document.getElementById('selected-count').textContent = `${selected} selected`;
@@ -2039,6 +2604,12 @@ window.onload = async () => {
   
   document.getElementById('vendor-form').reset();
   
+  // ✅ ADD MIGRATION BUTTON TO ADMIN PANEL
+  addMigrationButton();
+  
+  // ✅ START AUTO MIGRATION (optional)
+  startAutoMigration();
+  
   document.querySelectorAll('.feature-card').forEach(card => {
     card.style.cursor = 'pointer';
     card.onclick = () => {
@@ -2102,56 +2673,6 @@ installBtn.addEventListener('click', async () => {
     showToast('App Installed Successfully!');
   }
 });
-
-// ==================== FAST PHOTO COMPRESSION ====================
-function fastCompressPhoto(file, maxSizeKB = 50) {
-  return new Promise((resolve, reject) => {
-    if (file.size <= maxSizeKB * 1024) {
-      const reader = new FileReader();
-      reader.onload = (e) => resolve(e.target.result);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-      return;
-    }
-
-    const img = new Image();
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    
-    img.onload = function() {
-      let width = img.width;
-      let height = img.height;
-      const maxDimension = 400;
-      
-      if (width > height) {
-        if (width > maxDimension) {
-          height = (height * maxDimension) / width;
-          width = maxDimension;
-        }
-      } else {
-        if (height > maxDimension) {
-          width = (width * maxDimension) / height;
-          height = maxDimension;
-        }
-      }
-      
-      canvas.width = width;
-      canvas.height = height;
-      ctx.drawImage(img, 0, 0, width, height);
-      const compressedDataURL = canvas.toDataURL('image/jpeg', 0.6);
-      resolve(compressedDataURL);
-    };
-    
-    img.onerror = () => {
-      const reader = new FileReader();
-      reader.onload = (e) => resolve(e.target.result);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    };
-    
-    img.src = URL.createObjectURL(file);
-  });
-}
 
 // Quick validation function
 function validateForm(f) {
@@ -2309,6 +2830,5 @@ window.addEventListener('load', function() {
 });
 </script>
 
-</body>
 </body>
 </html>
