@@ -1,5 +1,5 @@
 // FIXED SERVICE WORKER - With Auto Updates
-const CACHE_NAME = 'lokonex-v6'; // ✅ FIXED: Constant name
+const CACHE_NAME = 'lokonex-v7'; // ✅ FIXED: Constant name
 
 // ONLY cache essential files
 const urlsToCache = [
@@ -40,5 +40,6 @@ self.addEventListener('fetch', event => {
       .catch(() => caches.match(event.request))
   );
 });
+
 
 
