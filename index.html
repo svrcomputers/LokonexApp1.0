@@ -1159,21 +1159,27 @@ let otpStore = JSON.parse(localStorage.getItem('vendor_otp_store')) || {};
 // ==================== FIREBASE OTP PROTECTION ====================
 async function sendEditOTP(mobile, vendorId) {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpExpiry = Date.now() + 10 * 60 * 1000; // 10 minutes
     
-    // Live server లో కూడా OTP ని పాపప్ లో చూపించండి
-    console.log(`📱 OTP for ${mobile}: ${otp} (Live Demo)`);
-    
-    return new Promise((resolve) => {
-        popup('OTP Sent - Live Demo', 
-              `📲 <strong>Mobile Number:</strong> ${mobile}<br>
-               🔐 <strong>Your OTP:</strong> <span style="font-size:2rem;color:#ffd700;font-weight:bold;">${otp}</span><br><br>
-               💡 <em>Live Demo: Enter this OTP to continue</em>`, 
-              () => {
-                  showOTPVerification(vendorId, mobile);
-                  resolve(true);
-              });
-    });
-}
+    try {
+        // Store OTP in Firebase (very small data)
+        await database.ref('otps/' + mobile).set({
+            otp: otp,
+            vendorId: vendorId,
+            expiry: otpExpiry,
+            attempts: 0,
+            timestamp: Date.now()
+        });
+        
+        console.log(`📱 OTP for ${mobile}: ${otp} (Firebase)`);
+        
+        // For demo - show OTP in popup
+        return new Promise((resolve) => {
+            popup('OTP Sent', `OTP: ${otp} (Demo)<br>Mobile: ${mobile}`, () => {
+                showOTPVerification(vendorId, mobile);
+                resolve(true);
+            });
+        });
         
     } catch (error) {
         console.error('Firebase OTP save error:', error);
@@ -1215,11 +1221,11 @@ function showOTPVerification(vendorId, mobile) {
     otpForm.style.borderColor = '#25d366';
     otpForm.innerHTML = `
         <h3 style="color:#25d366;">
-            <i class="fas fa-shield-alt"></i> Enter OTP - Live Demo
+            <i class="fas fa-shield-alt"></i> Verify OTP
         </h3>
         <p style="text-align:center;margin-bottom:1rem;">
-            OTP generated for <strong>${mobile}</strong><br>
-            <small style="color:#ffd700;">Check the popup for OTP</small>
+            OTP sent to <strong>${mobile}</strong><br>
+            <small style="color:#ffd700;">Valid for 10 minutes</small>
         </p>
         <input type="text" id="otp-input" placeholder="Enter 6-digit OTP" maxlength="6" style="text-align:center;font-size:1.2rem;letter-spacing:0.5rem;">
         <div style="display:flex;gap:0.5rem;margin-top:1rem;">
@@ -1360,11 +1366,9 @@ function startEditProcess(vendorId) {
     const vendor = vendors.find(v => v.id === vendorId);
     if (!vendor) return;
     
-    // Live server కి అనుగుణంగా మెసేజ్ మార్చండి
-    popup('Verify Ownership - Live Demo', 
-          `We'll generate an OTP for verification<br><br>
-           <strong>Registered Mobile:</strong> ${vendor.mobile}<br><br>
-           <em>Live Demo: OTP will be shown on screen</em>`, 
+    // Show confirmation before sending OTP
+    popup('Verify Ownership', 
+          `We will send OTP to ${vendor.mobile} to verify you are the owner. Continue?`, 
           () => {
               sendEditOTP(vendor.mobile, vendorId);
           });
