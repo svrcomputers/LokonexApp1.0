@@ -1221,11 +1221,11 @@ function showOTPVerification(vendorId, mobile) {
     otpForm.style.borderColor = '#25d366';
     otpForm.innerHTML = `
         <h3 style="color:#25d366;">
-            <i class="fas fa-shield-alt"></i> Verify OTP
+            <i class="fas fa-shield-alt"></i> Enter OTP - Live Demo
         </h3>
         <p style="text-align:center;margin-bottom:1rem;">
-            OTP sent to <strong>${mobile}</strong><br>
-            <small style="color:#ffd700;">Valid for 10 minutes</small>
+            OTP generated for <strong>${mobile}</strong><br>
+            <small style="color:#ffd700;">Check the popup for OTP</small>
         </p>
         <input type="text" id="otp-input" placeholder="Enter 6-digit OTP" maxlength="6" style="text-align:center;font-size:1.2rem;letter-spacing:0.5rem;">
         <div style="display:flex;gap:0.5rem;margin-top:1rem;">
