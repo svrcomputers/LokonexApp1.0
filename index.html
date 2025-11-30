@@ -231,7 +231,7 @@ footer{text-align:left;padding:1.5rem 1rem;background:rgba(0,0,0,0.7);font-size:
   padding: 0 0.5rem;
 }
 
-#home h1 { 
+#home h1 {
   font-size: 1.8rem !important;
 }
 
@@ -784,7 +784,8 @@ html {
       <input type="number" name="exp" min="0" required placeholder="Enter years of experience / అనుభవం సంవత్సరాలు నమోదు చేయండి" class="placeholder-english">
       
     <label>Photo (Optional) / ఫోటో (ఐచ్ఛికం)</label>
-<input type="file" name="photo" accept="image/*">
+<input type="file" name="photo" accept="image/*" id="photo-input" onchange="previewAndCompressImage(this)">
+<div id="photo-preview"></div>
 <p>Please upload a small-size photo below 100 KB. If it is not available, just leave it.</p>
 <p>దయచేసి 100 KB కంటే తక్కువ సైజ్ ఉన్న ఫోటోను అప్లోడ్ చేయండి. అది అందుబాటులో లేకపోతే ఖాళీగా వదిలేయండి.</p>
   
@@ -1863,22 +1864,25 @@ function previewAndCompressImage(input) {
     reader.readAsDataURL(file);
 }
 
-// ==================== UPDATED SAVE VENDOR FUNCTION ====================
+// ==================== FIXED SAVE VENDOR FUNCTION (SINGLE VERSION) ====================
 async function saveVendor(f, isFree) {
+    console.log("🔄 Starting vendor registration...");
+    
     // Use compressed photo if available, otherwise use default
     let finalPhoto = window.compressedPhotoData || getDefaultPhoto();
     
     // Clear the stored photo data after use
     window.compressedPhotoData = null;
 
-    const vendor = {
+    // Create vendor data object
+    const vendorData = {
         id: Date.now(),
         name: f.name.value.trim(),
         mobile: f.mobile.value.trim(),
         service: f.service.value === 'Others' ? f.custom_service.value.trim() : f.service.value,
         location: f.area.value.trim(),
         experience: f.exp.value,
-        photo: finalPhoto, // Now using compressed image
+        photo: finalPhoto,
         description: f.desc.value.trim(),
         paid: !isFree,
         approved: false,
@@ -1888,7 +1892,10 @@ async function saveVendor(f, isFree) {
         timestamp: Date.now()
     };
 
-    vendors.push(vendor);
+    console.log("✅ Vendor data created:", vendorData);
+    
+    // Add to vendors array
+    vendors.push(vendorData);
     
     // Use optimized Firebase save
     await saveVendorsToFirebaseOptimized();
@@ -1904,60 +1911,10 @@ async function saveVendor(f, isFree) {
     }
     
     updateFreeSlots();
+    console.log("✅ Vendor registration completed successfully");
 }
 
-// ==================== OPTIMIZED VENDOR SAVE ====================
-async function saveVendor(photoData, f, isFree) {
-    // Use compressed default photo
-    let finalPhoto = getDefaultPhoto();
-    
-    // Compress user photo if provided
-    if (photoData && photoData.startsWith('data:image/')) {
-        try {
-            console.log("🔧 Compressing user photo...");
-            finalPhoto = await compressImageExtremely(photoData);
-            console.log("✅ Photo compressed successfully");
-        } catch (error) {
-            console.error("❌ Compression failed, using default:", error);
-            finalPhoto = getDefaultPhoto();
-        }
-    }
-
-    const vendor = {
-        id: Date.now(),
-        name: f.name.value.trim(),
-        mobile: f.mobile.value.trim(),
-        service: f.service.value === 'Others' ? f.custom_service.value.trim() : f.service.value,
-        location: f.area.value.trim(),
-        experience: f.exp.value,
-        photo: finalPhoto, // Now compressed image
-        description: f.desc.value.trim(),
-        paid: !isFree,
-        approved: false,
-        regDate: new Date().toLocaleDateString('en-IN'),
-        regDateTime: new Date().toLocaleString('en-IN'),
-        deviceId: getDeviceId(),
-        timestamp: Date.now()
-    };
-
-    vendors.push(vendor);
-    
-    
-    // Use optimized Firebase save
-    await saveVendorsToFirebaseOptimized();
-
-    if (isFree) {
-        popup('Registration Submitted!', 'Your registration has been submitted for admin approval. You will be visible to customers once approved.');
-        document.getElementById('vendor-form').reset();
-        show('home');
-    } else {
-        document.getElementById('reg-number').textContent = vendors.filter(v => v.approved).length + 1;
-        show('payment-page');
-    }
-    
-    updateFreeSlots();
-}
-
+// ==================== OPTIMIZED VENDOR SAVE TO FIREBASE ====================
 function saveV() { 
   if (FIREBASE_ENABLED) {
     saveVendorsToFirebaseOptimized();
@@ -2106,7 +2063,7 @@ document.getElementById('vendor-form').addEventListener('submit', async function
     const approvedCount = vendors.filter(v => v.approved).length;
     const isFree = approvedCount < 50;
     
-    // ✅ NOW WE DON'T NEED TO PROCESS PHOTO HERE - IT'S ALREADY COMPRESSED
+    // Call the CORRECT saveVendor function with proper parameters
     await saveVendor(f, isFree);
     
   } catch (error) {
@@ -2767,6 +2724,39 @@ function shareApp() {
   }
 }
 
+// Quick validation function
+function validateForm(f) {
+  if (!f.name.value.trim()) {
+    popup('Error', 'Please enter your full name');
+    return false;
+  }
+  if (!f.mobile.value.trim() || f.mobile.value.trim().length < 10) {
+    popup('Error', 'Please enter a valid mobile number');
+    return false;
+  }
+  if (!f.service.value) {
+    popup('Error', 'Please select a service category');
+    return false;
+  }
+  if (f.service.value === 'Others' && !f.custom_service.value.trim()) {
+    popup('Error', 'Please enter your service');
+    return false;
+  }
+  if (!f.area.value.trim()) {
+    popup('Error', 'Please enter your area');
+    return false;
+  }
+  if (!f.exp.value || f.exp.value < 0) {
+    popup('Error', 'Please enter valid experience');
+    return false;
+  }
+  if (!f.desc.value.trim()) {
+    popup('Error', 'Please enter service description');
+    return false;
+  }
+  return true;
+}
+
 // Initialize
 // Initialize
 // Force refresh categories on page load
@@ -2862,39 +2852,6 @@ installBtn.addEventListener('click', async () => {
     showToast('App Installed Successfully!');
   }
 });
-
-// Quick validation function
-function validateForm(f) {
-  if (!f.name.value.trim()) {
-    popup('Error', 'Please enter your full name');
-    return false;
-  }
-  if (!f.mobile.value.trim() || f.mobile.value.trim().length < 10) {
-    popup('Error', 'Please enter a valid mobile number');
-    return false;
-  }
-  if (!f.service.value) {
-    popup('Error', 'Please select a service category');
-    return false;
-  }
-  if (f.service.value === 'Others' && !f.custom_service.value.trim()) {
-    popup('Error', 'Please enter your service');
-    return false;
-  }
-  if (!f.area.value.trim()) {
-    popup('Error', 'Please enter your area');
-    return false;
-  }
-  if (!f.exp.value || f.exp.value < 0) {
-    popup('Error', 'Please enter valid experience');
-    return false;
-  }
-  if (!f.desc.value.trim()) {
-    popup('Error', 'Please enter service description');
-    return false;
-  }
-  return true;
-}
 
 function showToast(message) {
   toast.textContent = message;
