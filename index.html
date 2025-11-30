@@ -1254,7 +1254,7 @@ async function compressAllExistingPhotos() {
         popup('Photos Optimized!', `${compressedCount} existing photos have been compressed! Your app will now use less data.`);
     } else {
         console.log("ℹ️ No photos needed compression");
-        popup('No Changes', 'All photos are already optimized!');
+        //popup('No Changes', 'All photos are already optimized!');
     }
     
     return compressedCount;
@@ -1525,7 +1525,7 @@ async function fixLargePhotos() {
         showVendors();
     } else {
         console.log("✅ No large photos found");
-        popup('No Issues', 'All photos are already 80x80!');
+        //popup('No Issues', 'All photos are already 80x80!');
     }
     
     return fixedCount;
